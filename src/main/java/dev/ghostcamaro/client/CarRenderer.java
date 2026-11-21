@@ -43,6 +43,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         float time=(c.age+dt)/20f;
         String[] op={"Door_L_Open","Door_R_Open","Hood_Open","Trunk_Open","Window_L_Down","Window_R_Down"};
         for(int i=0;i<6;i++)if(c.openings[i]>0)play(op[i],c.openings[i]*(i<4?.85f:1.2f),false);
+        if(c.openings[6]>0)play("Glovebox_Open",.85f*c.openings[6],false);
         float turn=c.steering();if(turn!=0)play("Steering_Left_Right",turn>0?.7f*turn:1.4f-.7f*turn,false);
         for(String n:new String[]{"Wheel_FL","Wheel_FR","Wheel_RL","Wheel_RR"})angle(n,0,0,1,c.roll());
         if(c.flag(2))play("Headlights_On",.36f,false);
@@ -53,7 +54,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         if(c.flag(32))play("Brake_Cycle",.5f,false);if(c.flag(8192))play("Handbrake_Engage",.45f,false);
         if(c.flag(4096))play("Wipers",time%1.4f,false);
         angle("Speed_needle",1,0,0,-Math.abs(c.speed())*1.95f);angle("RPM_needle",1,0,0,-c.rpm()*.00047f);
-        if(c.failure()>0){play("Critical_Failure_Burst",Math.min(6,(c.failure()+dt)/20f),false);}else if(c.health()<45){play("Smoke_Minor_Loop",time%3,false);if(c.flag(1))play("Breakdown_Stall",time%2,false);}
+        if(c.failure()>60){play("Critical_Failure_Burst",Math.min(6,(c.failure()-60+dt)/20f),false);}else if(c.failure()>0){play("Smoke_Critical_Loop",(c.failure()+dt)/20f%3,false);}else if(c.health()<45){play("Smoke_Minor_Loop",time%3,false);if(c.flag(1))play("Breakdown_Stall",time%2,false);}
         m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
     }
     void draw(GhostCamaroEntity car,int i,MatrixStack m,VertexConsumerProvider vp,int light){

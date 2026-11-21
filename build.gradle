@@ -30,3 +30,22 @@ if (project.hasProperty('vehicleSmoke')) {
         }
     }
 }
+
+if (project.hasProperty('dedicatedSmoke')) {
+    dependencies { modImplementation 'net.fabricmc.fabric-api:fabric-gametest-api-v1:1.2.13+1802ada577' }
+    sourceSets.main.java.srcDir 'src/gametest/java'
+    processResources {
+        inputs.property('dedicatedSmoke', true)
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('"main":["dev.ghostcamaro.GhostCamaro"]', '"fabric-gametest":["dev.ghostcamaro.VehicleGameTests"],"main":["dev.ghostcamaro.GhostCamaro"]') }
+        }
+    }
+    loom.runs {
+        vehicleServer {
+            server()
+            runDir 'run/dedicated'
+            vmArg '-Dfabric-api.gametest'
+            vmArg '-Dfabric-api.gametest.report-file=gametest.xml'
+        }
+    }
+}

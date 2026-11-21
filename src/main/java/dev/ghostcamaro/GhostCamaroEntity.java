@@ -23,7 +23,7 @@ public class GhostCamaroEntity extends Entity {
     private static final TrackedData<NbtCompound> MIRRORS=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.NBT_COMPOUND);
     private static final TrackedData<Optional<UUID>> DRIVER=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.OPTIONAL_UUID);
     private static final TrackedData<Integer> FAILURE=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.INTEGER);
-    public static final int MOTOR=1,LIGHTS=2,LEFT=4,RIGHT=8,HAZARD=16,STOP=32,DOOR_L=64,DOOR_R=128,HOOD=256,TRUNK=512,WIN_L=1024,WIN_R=2048,WIPER=4096,PARK=8192,THROTTLE=16384;
+    public static final int MOTOR=1,LIGHTS=2,LEFT=4,RIGHT=8,HAZARD=16,STOP=32,DOOR_L=64,DOOR_R=128,HOOD=256,TRUNK=512,WIN_L=1024,WIN_R=2048,WIPER=4096,PARK=8192,THROTTLE=16384,GLOVEBOX=32768;
     public final CargoInventory cargo=new CargoInventory();
     public final class CargoInventory extends SimpleInventory {
         private boolean batching; CargoInventory(){super(27);}
@@ -33,7 +33,7 @@ public class GhostCamaroEntity extends Entity {
     private int input,lastInput=-100,lastAction=-1,startTicks,interpolation;
     private double tx,ty,tz; private float ta;
     private boolean dropped;
-    public final float[] openings=new float[6];public float lastRoll; public int lastGear,shiftAge=-100; public int gear(){return speed()<-.01?-1:(int)Math.min(4,1+Math.floor(Math.abs(speed())/.23));}
+    public final float[] openings=new float[7];public float lastRoll; public int lastGear,shiftAge=-100; public int gear(){return speed()<-.01?-1:(int)Math.min(4,1+Math.floor(Math.abs(speed())/.23));}
     public GhostCamaroEntity(EntityType<? extends GhostCamaroEntity> type,World w){super(type,w);setStepHeight(.66f);}
     protected void initDataTracker(){dataTracker.startTracking(FLAGS,0);dataTracker.startTracking(SPEED,0f);dataTracker.startTracking(FUEL,GhostCamaro.CONFIG.tank);
         dataTracker.startTracking(HP,100f);dataTracker.startTracking(STEER,0f);dataTracker.startTracking(ROLL,0f);dataTracker.startTracking(FAILURE,0);dataTracker.startTracking(DRIVER,Optional.empty());dataTracker.startTracking(MIRRORS,new NbtCompound());}
@@ -92,13 +92,14 @@ public class GhostCamaroEntity extends Entity {
         if(a>=2&&a<=5){int f=new int[]{LIGHTS,LEFT,RIGHT,HAZARD}[a-2];toggle(f);if(f==LEFT)set(RIGHT,false);if(f==RIGHT)set(LEFT,false);}
         if(a==6)playSound(GhostCamaro.HORN,1,1);if(a==7)toggle(WIPER);
         if(a>=8&&a<=13){int f=new int[]{WIN_L,WIN_R,DOOR_L,DOOR_R,HOOD,TRUNK}[a-8];if(a<10||Math.abs(speed())<.012)toggle(f);}
+        if(a==15)toggle(GLOVEBOX);
         if(a==14&&m<3&&Float.isFinite(yaw)&&Float.isFinite(pitch)){NbtCompound n=dataTracker.get(MIRRORS).copy();n.putFloat("m"+m+"0",MathHelper.clamp(yaw,-28,28));n.putFloat("m"+m+"1",MathHelper.clamp(pitch,-18,18));dataTracker.set(MIRRORS,n);}
     }
     public void tick(){
         super.tick();
         int gear=gear();if(gear!=lastGear){shiftAge=age;lastGear=gear;}
-        int[] bits={DOOR_L,DOOR_R,HOOD,TRUNK,WIN_L,WIN_R};
-        for(int i=0;i<6;i++)openings[i]=MathHelper.stepTowards(openings[i],flag(bits[i])?1:0,i<4?.065f:.042f);
+        int[] bits={DOOR_L,DOOR_R,HOOD,TRUNK,WIN_L,WIN_R,GLOVEBOX};
+        for(int i=0;i<bits.length;i++)openings[i]=MathHelper.stepTowards(openings[i],flag(bits[i])?1:0,i==4||i==5?.042f:.065f);
         if(getWorld().isClient){if(interpolation>0){setPosition(getX()+(tx-getX())/interpolation,getY()+(ty-getY())/interpolation,getZ()+(tz-getZ())/interpolation);setYaw(getYaw()+MathHelper.wrapDegrees(ta-getYaw())/interpolation);interpolation--;}return;}
         if(age-lastInput>7||getPassengerList().stream().noneMatch(this::driver))input=0;
         if(startTicks>0&&--startTicks==0&&fuel()>0&&failure()==0)set(MOTOR,true);
@@ -119,7 +120,7 @@ public class GhostCamaroEntity extends Entity {
         dataTracker.set(SPEED,(float)v);dataTracker.set(ROLL,(float)((roll()+Math.copySign(travel,v==0?before:v)/.345)%(Math.PI*2)));
         if(flag(MOTOR)){dataTracker.set(FUEL,Math.max(0,fuel()-c.idleConsumption-(float)Math.abs(v)*c.driveConsumption));if(fuel()==0)disableEngine();}
         if((flag(LEFT)||flag(RIGHT)||flag(HAZARD))&&age%14==0)playSound(GhostCamaro.CLICK,.26f,1);
-        if(failure()>0&&failure()<122){int f=failure()+1;dataTracker.set(FAILURE,f);if(f==83){playSound(GhostCamaro.BURST,1.25f,1);set(HOOD,true);}}
+        if(failure()>0&&failure()<182){int f=failure()+1;dataTracker.set(FAILURE,f);if(f==143){playSound(GhostCamaro.BURST,1.25f,1);set(HOOD,true);}}
         if(flag(MOTOR)&&age%12==0)playSound(GhostCamaro.ENGINE,.55f,.8f+Math.abs(speed())*1.6f);
     }
     public void updateTrackedPositionAndAngles(double x,double y,double z,float a,float p,int steps,boolean interp){tx=x;ty=y;tz=z;ta=a;interpolation=3;}

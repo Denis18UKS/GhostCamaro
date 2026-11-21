@@ -18,6 +18,11 @@ jobs:
           name: GhostCamaro-Fabric-1.20.1-V6
           path: build/libs/GhostCamaro-Fabric-1.20.1-V6.jar
           if-no-files-found: error
+      - name: Dedicated Fabric vehicle GameTest
+        timeout-minutes: 8
+        run: |
+          bash gradlew -PdedicatedSmoke runVehicleServer --stacktrace
+          test -s run/dedicated/gametest.xml
       - name: In-game client and integrated-server check
         timeout-minutes: 16
         env:
@@ -31,6 +36,7 @@ jobs:
         with:
           name: in-game-evidence
           path: |
+            run/dedicated/gametest.xml
             run/evidence
             run/logs/latest.log
             run/crash-reports

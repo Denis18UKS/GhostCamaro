@@ -17,8 +17,8 @@ import org.lwjgl.glfw.GLFW;
 public class CamaroClient implements ClientModInitializer {
     public static class Options {public int mirrorWidth=256,mirrorFps=12;public float chaseDistance=5.4f,eyeHeight=1.09f;public boolean hud=true;}
     public static final Options config=Settings.load("ghostcamaro-client.json",new Options(),Options.class);
-    static final String[] actions={"engine","lights","left","right","hazard","horn","wipers","window_l","window_r","door_l","door_r","hood","trunk","mirror","hood_cam","look_l","look_r","look_c"};
-    static final int[] defaults={82,76,90,88,67,72,80,-1,-1,-1,-1,-1,-1,77,86,-1,-1,-1};
+    static final String[] actions={"engine","lights","left","right","hazard","horn","wipers","window_l","window_r","door_l","door_r","hood","trunk","mirror","hood_cam","look_l","look_r","look_c","glovebox"};
+    static final int[] defaults={82,76,90,88,67,72,80,-1,-1,-1,-1,-1,-1,77,86,-1,-1,-1,-1};
     static KeyBinding[] keys=new KeyBinding[actions.length];public static boolean bonnet;public static int glance=-1;public static float glanceBlend;static Perspective saved;static GhostCamaroEntity previous;
     public static MinecraftClient mc(){return MinecraftClient.getInstance();}
     static GhostCamaroEntity car(){return mc().player!=null&&mc().player.getVehicle() instanceof GhostCamaroEntity c?c:null;}
@@ -33,6 +33,7 @@ public class CamaroClient implements ClientModInitializer {
                 for(int i=0;i<keys.length;i++)while(keys[i].wasPressed()){if(i<13&&car.driver(c.player))send(car,mask,i+1,0,0,0);
                     if(i==13&&car.driver(c.player)){int m=MirrorSystem.target(car);if(m>=0)c.setScreen(new Adjust(car,m));else c.player.sendMessage(Text.translatable("message.ghostcamaro.aim_mirror"),true);}
                     if(i==14)bonnet=!bonnet;
+                    if(i==18&&car.driver(c.player))send(car,mask,15,0,0,0);
                 }
             }
             int target=keys[15].isPressed()?0:keys[16].isPressed()?1:keys[17].isPressed()?2:-1;
