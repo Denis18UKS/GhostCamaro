@@ -23,12 +23,17 @@ public class GhostCamaroEntity extends Entity {
     private static final TrackedData<NbtCompound> MIRRORS=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.NBT_COMPOUND);
     private static final TrackedData<Optional<UUID>> DRIVER=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.OPTIONAL_UUID);
     private static final TrackedData<Integer> FAILURE=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.INTEGER);
-    public static final int MOTOR=1,LIGHTS=2,LEFT=4,RIGHT=8,HAZARD=16,STOP=32,DOOR_L=64,DOOR_R=128,HOOD=256,TRUNK=512,WIN_L=1024,WIN_R=2048,WIPER=4096,PARK=8192;
-    public final SimpleInventory cargo=new SimpleInventory(27){@Override public boolean canPlayerUse(PlayerEntity p){return isAlive()&&p.squaredDistanceTo(GhostCamaroEntity.this)<36&&flag(TRUNK)&&Math.abs(speed())<.012;}};
+    public static final int MOTOR=1,LIGHTS=2,LEFT=4,RIGHT=8,HAZARD=16,STOP=32,DOOR_L=64,DOOR_R=128,HOOD=256,TRUNK=512,WIN_L=1024,WIN_R=2048,WIPER=4096,PARK=8192,THROTTLE=16384;
+    public final CargoInventory cargo=new CargoInventory();
+    public final class CargoInventory extends SimpleInventory {
+        private boolean batching; CargoInventory(){super(27);}
+        void replace(SimpleInventory next){batching=true;try{for(int i=0;i<size();i++)setStack(i,next.getStack(i));}finally{batching=false;}markDirty();}
+        public void markDirty(){if(!batching)super.markDirty();}
+        @Override public boolean canPlayerUse(PlayerEntity p){return isAlive()&&p.squaredDistanceTo(GhostCamaroEntity.this)<36&&flag(TRUNK)&&Math.abs(speed())<.012;}}
     private int input,lastInput=-100,lastAction=-1,startTicks,interpolation;
     private double tx,ty,tz; private float ta;
     private boolean dropped;
-    public final float[] openings=new float[6];public float lastRoll;
+    public final float[] openings=new float[6];public float lastRoll; public int lastGear,shiftAge=-100; public int gear(){return speed()<-.01?-1:(int)Math.min(4,1+Math.floor(Math.abs(speed())/.23));}
     public GhostCamaroEntity(EntityType<? extends GhostCamaroEntity> type,World w){super(type,w);setStepHeight(.66f);}
     protected void initDataTracker(){dataTracker.startTracking(FLAGS,0);dataTracker.startTracking(SPEED,0f);dataTracker.startTracking(FUEL,GhostCamaro.CONFIG.tank);
         dataTracker.startTracking(HP,100f);dataTracker.startTracking(STEER,0f);dataTracker.startTracking(ROLL,0f);dataTracker.startTracking(FAILURE,0);dataTracker.startTracking(DRIVER,Optional.empty());dataTracker.startTracking(MIRRORS,new NbtCompound());}
@@ -91,6 +96,7 @@ public class GhostCamaroEntity extends Entity {
     }
     public void tick(){
         super.tick();
+        int gear=gear();if(gear!=lastGear){shiftAge=age;lastGear=gear;}
         int[] bits={DOOR_L,DOOR_R,HOOD,TRUNK,WIN_L,WIN_R};
         for(int i=0;i<6;i++)openings[i]=MathHelper.stepTowards(openings[i],flag(bits[i])?1:0,i<4?.065f:.042f);
         if(getWorld().isClient){if(interpolation>0){setPosition(getX()+(tx-getX())/interpolation,getY()+(ty-getY())/interpolation,getZ()+(tz-getZ())/interpolation);setYaw(getYaw()+MathHelper.wrapDegrees(ta-getYaw())/interpolation);interpolation--;}return;}
@@ -98,7 +104,7 @@ public class GhostCamaroEntity extends Entity {
         if(startTicks>0&&--startTicks==0&&fuel()>0&&failure()==0)set(MOTOR,true);
         double v=speed(),before=v;Settings c=GhostCamaro.CONFIG;boolean gas=(input&1)!=0,back=(input&2)!=0,park=(input&16)!=0;
         float turn=MathHelper.stepTowards(steering(),((input&4)!=0?1:0)-((input&8)!=0?1:0),.12f);dataTracker.set(STEER,turn);
-        boolean braking=back&&v>.004||park;set(STOP,braking);set(PARK,park);
+        boolean braking=back&&v>.004||park;set(STOP,braking);set(PARK,park);set(THROTTLE,gas&&flag(MOTOR));
         double grip=MathHelper.clamp(.6/getWorld().getBlockState(getBlockPos().down()).getBlock().getSlipperiness(),.45,1.25);
         if(park||back&&v>0)v=MathHelper.stepTowards((float)v,0,(float)((park?c.emergencyBrake:c.normalBrake)*grip));
         else if(flag(MOTOR)&&(gas||back))v+=c.acceleration*(gas?1:-.52)*(health()<45?.37:1)*grip;

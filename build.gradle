@@ -19,3 +19,14 @@ tasks.register('portAssets', Exec) {
 sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated/ghost'))
 processResources.dependsOn portAssets
 remapJar { archiveFileName = 'GhostCamaro-Fabric-1.20.1-V6.jar' }
+
+// Test-only entrypoint. Neither its classes nor its entrypoint are in the published JAR.
+if (project.hasProperty('vehicleSmoke')) {
+    sourceSets.main.java.srcDir 'src/smoke/java'
+    processResources {
+        inputs.property('vehicleSmoke', true)
+        filesMatching('fabric.mod.json') {
+            filter { line -> line.replace('"dev.ghostcamaro.client.CamaroClient"', '"dev.ghostcamaro.client.CamaroClient","dev.ghostcamaro.client.VehicleSmoke"') }
+        }
+    }
+}

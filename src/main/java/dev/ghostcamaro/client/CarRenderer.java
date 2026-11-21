@@ -47,6 +47,9 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         for(String n:new String[]{"Wheel_FL","Wheel_FR","Wheel_RL","Wheel_RR"})angle(n,0,0,1,c.roll());
         if(c.flag(2))play("Headlights_On",.36f,false);
         if(c.flag(16))play("Hazards",time%1.44f,false);else{if(c.flag(4))play("Indicator_Left",time%1.44f,false);if(c.flag(8))play("Indicator_Right",time%1.44f,false);}
+        if(c.flag(16384))play("Throttle_Cycle",.5f,false);
+        if(c.age-c.shiftAge<26)play("Gear_Shift",(c.age-c.shiftAge+dt)/20f,false);
+        if(c.flag(32)&&c.flag(8192))play("Brake_Emergency",.40f,true);else if(c.flag(32)&&Math.abs(c.speed())>.02)play("Brake_Normal",.44f,true);
         if(c.flag(32))play("Brake_Cycle",.5f,false);if(c.flag(8192))play("Handbrake_Engage",.45f,false);
         if(c.flag(4096))play("Wipers",time%1.4f,false);
         angle("Speed_needle",1,0,0,-Math.abs(c.speed())*1.95f);angle("RPM_needle",1,0,0,-c.rpm()*.00047f);
@@ -57,6 +60,8 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         Node n=scene.nodes[i];m.push();m.translate(tr[i][0],tr[i][1],tr[i][2]);m.multiply(rotation[i]);
         if(scale[i][0]!=1||scale[i][1]!=1||scale[i][2]!=1)m.scale(scale[i][0],scale[i][1],scale[i][2]);
         int mirror=n.name.equals("Mirror_glass")?0:n.name.equals("Mirror_glass.001")?1:n.name.equals("Mirror_silver")?2:-1;
+        if(mirror>=0){float x=mirror==2?-.103f:-.431f,y=mirror==2?1.128f:.908f,z=mirror==0?.953f:mirror==1?-.953f:0;
+            m.translate(x,y,z);m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(car.mirror(mirror,0)));m.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(car.mirror(mirror,1)));m.translate(-x,-y,-z);}
         if(n.mesh>=0)for(var p:scene.meshes[n.mesh]){
             boolean reflect=mirror>=0&&MirrorSystem.ready&&!MirrorSystem.rendering&&car==CamaroClient.car()&&CamaroClient.mc().options.getPerspective().isFirstPerson();
             var normal=vp.getBuffer(p.alpha?RenderLayer.getEntityTranslucent(tex[p.texture]):RenderLayer.getEntityCutoutNoCull(tex[p.texture]));
