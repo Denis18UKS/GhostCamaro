@@ -1,5 +1,5 @@
 plugins { id 'fabric-loom' version '1.7.4' }
-version = '6.0.0'
+version = '6.1.0'
 group = 'dev.ghostcamaro'
 base { archivesName = 'GhostCamaro-Fabric-1.20.1' }
 repositories { mavenCentral() }
@@ -18,7 +18,7 @@ tasks.register('portAssets', Exec) {
 }
 sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated/ghost'))
 processResources.dependsOn portAssets
-remapJar { archiveFileName = 'GhostCamaro-Fabric-1.20.1-V6.jar' }
+remapJar { archiveFileName = 'GhostCamaro-Fabric-1.20.1-V6.1.jar' }
 
 // Test-only entrypoint. Neither its classes nor its entrypoint are in the published JAR.
 if (project.hasProperty('vehicleSmoke')) {

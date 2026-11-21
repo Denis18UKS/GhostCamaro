@@ -55,10 +55,26 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         if(c.flag(4096))play("Wipers",time%1.4f,false);
         angle("Speed_needle",1,0,0,-Math.abs(c.speed())*1.95f);angle("RPM_needle",1,0,0,-c.rpm()*.00047f);
         if(c.failure()>60){play("Critical_Failure_Burst",Math.min(6,(c.failure()-60+dt)/20f),false);}else if(c.failure()>0){play("Smoke_Critical_Loop",(c.failure()+dt)/20f%3,false);}else if(c.health()<45){play("Smoke_Minor_Loop",time%3,false);if(c.flag(1))play("Breakdown_Stall",time%2,false);}
-        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
+        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);BootRenderer.draw(c,dt,m,v,light);hands(c,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
+    }
+    private void hands(GhostCamaroEntity car,MatrixStack m,VertexConsumerProvider buffers,int light){
+        var client=CamaroClient.mc();var player=client.player;
+        if(MirrorSystem.rendering || CamaroClient.bonnet || player==null || player.getVehicle()!=car || !car.driver(player) || !client.options.getPerspective().isFirstPerson())return;
+        if(!(client.getEntityRenderDispatcher().getRenderer(player) instanceof PlayerEntityRenderer renderer))return;
+        for(int side=-1;side<=1;side+=2){
+            m.push();m.translate(.008,.875,.398);
+            m.multiply(RotationAxis.POSITIVE_X.rotationDegrees(car.steering()*40));
+            m.translate(.218,.009,side*.157);
+            m.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(96));
+            m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90));
+            m.scale(.31f,.31f,.31f);
+            m.translate(-side*5f/16,-2f/16,0);
+            if(side>0)renderer.renderLeftArm(m,buffers,light,player);else renderer.renderRightArm(m,buffers,light,player);
+            m.pop();
+        }
     }
     void draw(GhostCamaroEntity car,int i,MatrixStack m,VertexConsumerProvider vp,int light){
-        Node n=scene.nodes[i];m.push();m.translate(tr[i][0],tr[i][1],tr[i][2]);m.multiply(rotation[i]);
+        Node n=scene.nodes[i];if(n.name.equals("Cargo"))return; m.push();m.translate(tr[i][0],tr[i][1],tr[i][2]);m.multiply(rotation[i]);
         if(scale[i][0]!=1||scale[i][1]!=1||scale[i][2]!=1)m.scale(scale[i][0],scale[i][1],scale[i][2]);
         int mirror=n.name.equals("Mirror_glass")?0:n.name.equals("Mirror_glass.001")?1:n.name.equals("Mirror_silver")?2:-1;
         if(mirror>=0){float x=mirror==2?-.103f:-.431f,y=mirror==2?1.128f:.908f,z=mirror==0?.953f:mirror==1?-.953f:0;

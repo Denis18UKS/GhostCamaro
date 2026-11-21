@@ -24,18 +24,21 @@ public class GhostCamaroEntity extends Entity {
     private static final TrackedData<Optional<UUID>> DRIVER=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.OPTIONAL_UUID);
     private static final TrackedData<Integer> FAILURE=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.INTEGER);
     public static final int MOTOR=1,LIGHTS=2,LEFT=4,RIGHT=8,HAZARD=16,STOP=32,DOOR_L=64,DOOR_R=128,HOOD=256,TRUNK=512,WIN_L=1024,WIN_R=2048,WIPER=4096,PARK=8192,THROTTLE=16384,GLOVEBOX=32768;
+    private static final TrackedData<Integer> LOAD=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.INTEGER);
+    public int cargoDisplay(){return dataTracker.get(LOAD);}
     public final CargoInventory cargo=new CargoInventory();
     public final class CargoInventory extends SimpleInventory {
         private boolean batching; CargoInventory(){super(27);}
         void replace(SimpleInventory next){batching=true;try{for(int i=0;i<size();i++)setStack(i,next.getStack(i));}finally{batching=false;}markDirty();}
-        public void markDirty(){if(!batching)super.markDirty();}
+        public void markDirty(){if(!batching){if(!getWorld().isClient)dataTracker.set(LOAD,CargoDisplay.summarize(this));super.markDirty();}}
+        @Override public ItemStack removeStack(int slot){ItemStack result=super.removeStack(slot);if(!result.isEmpty())markDirty();return result;}
         @Override public boolean canPlayerUse(PlayerEntity p){return isAlive()&&p.squaredDistanceTo(GhostCamaroEntity.this)<36&&flag(TRUNK)&&Math.abs(speed())<.012;}}
     private int input,lastInput=-100,lastAction=-1,startTicks,interpolation;
     private double tx,ty,tz; private float ta;
     private boolean dropped;
-    public final float[] openings=new float[7];public float lastRoll; public int lastGear,shiftAge=-100; public int gear(){return speed()<-.01?-1:(int)Math.min(4,1+Math.floor(Math.abs(speed())/.23));}
+    public final float[] openings=new float[7];public float loadPitch,loadRoll,lastLoadPitch,lastLoadRoll;private float previousSpeed; public float lastRoll; public int lastGear,shiftAge=-100; public int gear(){return speed()<-.01?-1:(int)Math.min(4,1+Math.floor(Math.abs(speed())/.23));}
     public GhostCamaroEntity(EntityType<? extends GhostCamaroEntity> type,World w){super(type,w);setStepHeight(.66f);}
-    protected void initDataTracker(){dataTracker.startTracking(FLAGS,0);dataTracker.startTracking(SPEED,0f);dataTracker.startTracking(FUEL,GhostCamaro.CONFIG.tank);
+    protected void initDataTracker(){dataTracker.startTracking(FLAGS,0);dataTracker.startTracking(LOAD,0);dataTracker.startTracking(SPEED,0f);dataTracker.startTracking(FUEL,GhostCamaro.CONFIG.tank);
         dataTracker.startTracking(HP,100f);dataTracker.startTracking(STEER,0f);dataTracker.startTracking(ROLL,0f);dataTracker.startTracking(FAILURE,0);dataTracker.startTracking(DRIVER,Optional.empty());dataTracker.startTracking(MIRRORS,new NbtCompound());}
     public boolean flag(int f){return (dataTracker.get(FLAGS)&f)!=0;}
     private void set(int f,boolean on){int old=dataTracker.get(FLAGS);dataTracker.set(FLAGS,on?old|f:old&~f);}
@@ -51,11 +54,10 @@ public class GhostCamaroEntity extends Entity {
     public boolean canHit(){return true;}public boolean isCollidable(){return true;} public boolean isPushable(){return false;}
     public Vec3d offset(double left,double up,double front){return new Vec3d(left,up,front).rotateY(-getYaw()*MathHelper.RADIANS_PER_DEGREE);}
     protected Box calculateBoundingBox(){
-        double a=Math.toRadians(getYaw()),x=Math.abs(Math.cos(a))*.98+Math.abs(Math.sin(a))*2.47,z=Math.abs(Math.sin(a))*.98+Math.abs(Math.cos(a))*2.47;
-        return new Box(getX()-x,getY(),getZ()-z,getX()+x,getY()+1.30,getZ()+z);
+        return CarHull.bounds(this);
     }
     protected boolean canAddPassenger(Entity e){return e instanceof PlayerEntity&&getPassengerList().size()<2;}
-    protected void updatePassengerPosition(Entity e,PositionUpdater u){Vec3d p=getPos().add(offset(driver(e)?.398:-.398,.10,-.15));u.accept(e,p.x,p.y,p.z);}
+    protected void updatePassengerPosition(Entity e,PositionUpdater u){Vec3d p=getPos().add(offset(driver(e)?.398:-.398,.035,-.20));u.accept(e,p.x,p.y,p.z);}
     protected void removePassenger(Entity e){super.removePassenger(e);if(driver(e)&&!getWorld().isClient){dataTracker.set(DRIVER,Optional.empty());input=0;}}
     public Vec3d updatePassengerForDismount(LivingEntity e){
         for(double lateral:new double[]{driver(e)?1.55:-1.55,driver(e)?-1.55:1.55,2.5,-2.5})for(double fore:new double[]{0,1,-1,2.9,-2.9})for(int y:new int[]{0,1,-1}){
@@ -65,6 +67,14 @@ public class GhostCamaroEntity extends Entity {
     }
     public ActionResult interactAt(PlayerEntity p,Vec3d hit,Hand hand){
         if(hand!=Hand.MAIN_HAND)return ActionResult.PASS;
+        float inverse=getYaw()*MathHelper.RADIANS_PER_DEGREE;
+        Vec3d local=hit.rotateY(inverse);
+        if(CarHull.select(local,local).isEmpty()){
+            Vec3d eye=p.getEyePos().subtract(getPos()).rotateY(inverse);
+            var precise=CarHull.select(eye,eye.add(p.getRotationVec(1).rotateY(inverse).multiply(6)));
+            if(precise.isEmpty())return ActionResult.PASS;
+            local=precise.get();
+        }
         if(getWorld().isClient)return ActionResult.SUCCESS;
         ItemStack stack=p.getStackInHand(hand);
         if(stack.isOf(GhostCamaro.CAN)||stack.isOf(GhostCamaro.KIT)){
@@ -73,7 +83,6 @@ public class GhostCamaroEntity extends Entity {
             if(!p.getAbilities().creativeMode)stack.decrement(1);return ActionResult.CONSUME;
         }
         if(Math.abs(speed())>.04)return ActionResult.FAIL;
-        Vec3d local=hit.rotateY(getYaw()*MathHelper.RADIANS_PER_DEGREE);
         if(local.z < -1.58){if(p.isSneaking()||!flag(TRUNK))toggle(TRUNK);
             if(flag(TRUNK))p.openHandledScreen(new SimpleNamedScreenHandlerFactory((id,inv,who)->GenericContainerScreenHandler.createGeneric9x3(id,inv,cargo),Text.translatable("container.ghostcamaro.trunk")));
         }else if(local.z>1.05){toggle(HOOD);}
@@ -100,7 +109,10 @@ public class GhostCamaroEntity extends Entity {
         int gear=gear();if(gear!=lastGear){shiftAge=age;lastGear=gear;}
         int[] bits={DOOR_L,DOOR_R,HOOD,TRUNK,WIN_L,WIN_R,GLOVEBOX};
         for(int i=0;i<bits.length;i++)openings[i]=MathHelper.stepTowards(openings[i],flag(bits[i])?1:0,i==4||i==5?.042f:.065f);
-        if(getWorld().isClient){if(interpolation>0){setPosition(getX()+(tx-getX())/interpolation,getY()+(ty-getY())/interpolation,getZ()+(tz-getZ())/interpolation);setYaw(getYaw()+MathHelper.wrapDegrees(ta-getYaw())/interpolation);interpolation--;}return;}
+        if(getWorld().isClient){lastLoadPitch=loadPitch;lastLoadRoll=loadRoll;
+            loadPitch=MathHelper.lerp(.28f,loadPitch,MathHelper.clamp((speed()-previousSpeed)*105,-2.2f,2.2f));
+            loadRoll=MathHelper.lerp(.22f,loadRoll,steering()*speed()*2.8f);previousSpeed=speed();
+            if(interpolation>0){setPosition(getX()+(tx-getX())/interpolation,getY()+(ty-getY())/interpolation,getZ()+(tz-getZ())/interpolation);setYaw(getYaw()+MathHelper.wrapDegrees(ta-getYaw())/interpolation);interpolation--;}return;}
         if(age-lastInput>7||getPassengerList().stream().noneMatch(this::driver))input=0;
         if(startTicks>0&&--startTicks==0&&fuel()>0&&failure()==0)set(MOTOR,true);
         double v=speed(),before=v;Settings c=GhostCamaro.CONFIG;boolean gas=(input&1)!=0,back=(input&2)!=0,park=(input&16)!=0;
@@ -113,7 +125,7 @@ public class GhostCamaroEntity extends Entity {
         v=MathHelper.clamp(v,-.27,c.maxSpeed);
         if(flag(TRUNK)||flag(HOOD))v=0;
         float yaw=getYaw();setYaw(yaw-(float)(Math.toDegrees(v/2.74*Math.tan(Math.toRadians(29*turn/(1+1.6*Math.abs(v)))))));
-        Box rotated=calculateBoundingBox();if(!getWorld().isSpaceEmpty(this,rotated))setYaw(yaw);setBoundingBox(calculateBoundingBox());
+        if(getYaw()!=yaw&&!CarHull.clear(this))setYaw(yaw);setBoundingBox(calculateBoundingBox());
         Vec3d delta=offset(0,0,v);double xx=getX(),zz=getZ();
         double vy=Math.max(-1.2,getVelocity().y-.08);move(MovementType.SELF,new Vec3d(delta.x,vy,delta.z));setVelocity(0,isOnGround()?0:vy*.98,0);
         double travel=Math.hypot(getX()-xx,getZ()-zz);if(horizontalCollision&&travel<Math.abs(v)*.65){if(Math.abs(before)>.15)hurtCar((float)(Math.abs(before)*c.collisionDamage));v=0;}

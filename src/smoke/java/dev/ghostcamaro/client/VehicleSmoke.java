@@ -19,10 +19,12 @@ import net.minecraft.world.level.LevelInfo;
 import java.nio.file.*;
 import java.util.*;
 public class VehicleSmoke implements ClientModInitializer {
+    final CargoSmoke loadTest=new CargoSmoke();
     final String saveName="vehicle-smoke-"+System.currentTimeMillis(); UUID carId; int stage,ticks;static volatile Throwable failure;static volatile boolean serverDone;
     static void check(boolean b,String m){if(!b)throw new AssertionError(m);System.out.println("[GHOST TEST] "+m);}
     public void onInitializeClient(){ClientTickEvents.END_CLIENT_TICK.register(c->{try{tick(c);}catch(Throwable e){e.printStackTrace();throw new RuntimeException(e);}});}
     void tick(MinecraftClient c)throws Exception{
+        if(CargoSmoke.secondary()){if(loadTest.tick(c,null))c.scheduleStop();return;}
         if(failure!=null)throw new RuntimeException(failure);
         if(stage==0&&(c.currentScreen instanceof TitleScreen||c.currentScreen instanceof AccessibilityOnboardingScreen)){
             stage=1;c.options.onboardAccessibility=false;c.options.getViewDistance().setValue(5);c.options.getSimulationDistance().setValue(5);
@@ -58,14 +60,16 @@ public class VehicleSmoke implements ClientModInitializer {
         }
         if(stage==4&&++ticks>20){
             Path dir=Path.of("evidence");try(var im=ScreenshotRecorder.takeScreenshot(c.getFramebuffer())){im.writeTo(dir.resolve("exterior.png"));}
-            stage=5;ticks=0;c.world.disconnect();c.disconnect(new TitleScreen());return;
+            stage=40;ticks=0;c.options.setPerspective(Perspective.FIRST_PERSON);loadTest.launch(c);return;
+        }
+        if(stage==40&&loadTest.tick(c,carId)){stage=5;ticks=0;c.world.disconnect();c.disconnect(new TitleScreen());return;
         }
         if(stage==5&&c.world==null&&++ticks>10){stage=6;ticks=0;c.createIntegratedServerLoader().start(new TitleScreen(),saveName);return;}
         if(stage==6&&c.player!=null&&c.getServer()!=null&&++ticks>55){
             stage=7;serverDone=false;var srv=c.getServer();srv.execute(()->{try{
                 var entity=srv.getOverworld().getEntity(carId);check(entity instanceof GhostCamaroEntity,"same vehicle UUID restored from saved world");
                 var car=(GhostCamaroEntity)entity;check(car.cargo.getStack(12).getCount()==13&&Cargo.count(car,s->s.isOf(Items.IRON_INGOT))==2,"cargo survives world restart");
-                check(car.mirror(1,0)==12&&car.mirror(1,1)==-4&&car.fuel()>0&&car.fuel()<GhostCamaro.CONFIG.tank,"fuel and mirror calibration survive world restart");serverDone=true;
+                check(car.cargoDisplay()==1+(1<<24),"visual cargo rebuilt from saved slots");check(car.mirror(1,0)==12&&car.mirror(1,1)==-4&&car.fuel()>0&&car.fuel()<GhostCamaro.CONFIG.tank,"fuel and mirror calibration survive world restart");serverDone=true;
             }catch(Throwable e){failure=e;}});return;
         }
         if(stage==7&&serverDone){

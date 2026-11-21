@@ -22,7 +22,7 @@ public class GhostCamaro implements ModInitializer {
             if(c.getWorld().isClient)return ActionResult.SUCCESS;
             GhostCamaroEntity e=new GhostCamaroEntity(CAR,c.getWorld());Vec3d p=c.getHitPos();
             e.refreshPositionAndAngles(p.x,p.y+.02,p.z,c.getPlayerYaw(),0);
-            if(!c.getWorld().isSpaceEmpty(e,e.getBoundingBox())||!c.getWorld().spawnEntity(e))return ActionResult.FAIL;
+            if(!CarHull.clear(e)||!c.getWorld().spawnEntity(e))return ActionResult.FAIL;
             if(c.getPlayer()!=null&&!c.getPlayer().getAbilities().creativeMode)c.getStack().decrement(1);return ActionResult.CONSUME;
         }});
     public static final Item CAN=item("fuel_can",new Item(new Item.Settings().maxCount(16))), KIT=item("repair_kit",new Item(new Item.Settings().maxCount(16)));
@@ -38,7 +38,7 @@ public class GhostCamaro implements ModInitializer {
             var cmd=CommandManager.literal("ghostcamaro");
             for(String op:new String[]{"spawn","repair","refuel","status"})cmd.then(CommandManager.literal(op).requires(s->op.equals("status")||s.hasPermissionLevel(2)).executes(ctx->{
                 var s=ctx.getSource();var player=s.getPlayerOrThrow();var world=s.getWorld();
-                if(op.equals("spawn")){var car=new GhostCamaroEntity(CAR,world);var v=player.getPos().add(Vec3d.fromPolar(0,player.getYaw()).multiply(4));car.refreshPositionAndAngles(v.x,v.y,v.z,player.getYaw(),0);if(!world.isSpaceEmpty(car,car.getBoundingBox()))return 0;return world.spawnEntity(car)?1:0;}
+                if(op.equals("spawn")){var car=new GhostCamaroEntity(CAR,world);var v=player.getPos().add(Vec3d.fromPolar(0,player.getYaw()).multiply(4));car.refreshPositionAndAngles(v.x,v.y,v.z,player.getYaw(),0);if(!CarHull.clear(car))return 0;return world.spawnEntity(car)?1:0;}
                 GhostCamaroEntity car=player.getVehicle() instanceof GhostCamaroEntity c?c:world.getEntitiesByClass(GhostCamaroEntity.class,player.getBoundingBox().expand(8),v->true).stream().min(java.util.Comparator.comparingDouble(v->v.squaredDistanceTo(player))).orElse(null);
                 if(car==null){s.sendError(Text.translatable("message.ghostcamaro.no_car"));return 0;}
                 if(op.equals("repair")) car.repair();if(op.equals("refuel"))car.refuel();s.sendFeedback(()->Text.literal(car.status()),false);return 1;

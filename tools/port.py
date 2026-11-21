@@ -1,5 +1,5 @@
 """Lossless glTF triangle/index expansion for Minecraft's entity vertex format."""
-import json, struct, pathlib, base64
+import json, struct, pathlib, base64, zlib
 root=pathlib.Path(__file__).resolve().parents[1]
 out=root/'build/generated/ghost/assets/ghostcamaro'
 (out/'vehicle').mkdir(parents=True,exist_ok=True);(out/'textures/entity').mkdir(parents=True,exist_ok=True)
@@ -12,6 +12,14 @@ def acc(i):
  v=g['bufferViews'][a['bufferView']];offset=v.get('byteOffset',0)+a.get('byteOffset',0);stride=v.get('byteStride',struct.calcsize(fmt))
  return [struct.unpack_from(fmt,buf,offset+j*stride) for j in range(a['count'])]
 for i,img in enumerate(g['images']):(out/'textures/entity'/('atlas%d.png'%i)).write_bytes(view(img['bufferView']))
+# Vanilla entity_translucent discards very low alpha. Keep a cool tint above that cutoff.
+def glass_png(rgb, alpha):
+ def chunk(tag, data):
+  return struct.pack('>I',len(data))+tag+data+struct.pack('>I',zlib.crc32(tag+data))
+ rows=b''.join(b'\0'+bytes((*rgb,alpha+y//3))*16 for y in range(16))
+ return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',16,16,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(rows))+chunk(b'IEND',b'')
+for index,color,opacity in [(1,(168,198,206),49),(2,(92,125,136),88)]:
+ (out/'textures/entity'/('atlas%d.png'%index)).write_bytes(glass_png(color,opacity))
 model={'roots':g['scenes'][0]['nodes'],'nodes':g['nodes'],'clips':{},'meshes':[]}
 with (out/'vehicle/geometry.bin').open('wb') as f:
  for m in g['meshes']:
