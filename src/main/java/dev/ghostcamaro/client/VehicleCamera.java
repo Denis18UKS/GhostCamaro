@@ -1,4 +1,5 @@
-package dev.ghostcamaro.client;
+package dev.ghostcamaro.client.mixin;
+import dev.ghostcamaro.client.*;
 import dev.ghostcamaro.*;
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;

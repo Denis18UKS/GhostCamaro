@@ -16,11 +16,11 @@ import net.minecraft.util.math.*;
 import org.lwjgl.glfw.GLFW;
 public class CamaroClient implements ClientModInitializer {
     public static class Options {public int mirrorWidth=256,mirrorFps=12;public float chaseDistance=5.4f,eyeHeight=1.09f;public boolean hud=true;}
-    static final Options config=Settings.load("ghostcamaro-client.json",new Options(),Options.class);
+    public static final Options config=Settings.load("ghostcamaro-client.json",new Options(),Options.class);
     static final String[] actions={"engine","lights","left","right","hazard","horn","wipers","window_l","window_r","door_l","door_r","hood","trunk","mirror","hood_cam","look_l","look_r","look_c"};
     static final int[] defaults={82,76,90,88,67,72,80,-1,-1,-1,-1,-1,-1,77,86,-1,-1,-1};
-    static KeyBinding[] keys=new KeyBinding[actions.length];static boolean bonnet;static int glance=-1;static float glanceBlend;static Perspective saved;static GhostCamaroEntity previous;
-    static MinecraftClient mc(){return MinecraftClient.getInstance();}
+    static KeyBinding[] keys=new KeyBinding[actions.length];public static boolean bonnet;public static int glance=-1;public static float glanceBlend;static Perspective saved;static GhostCamaroEntity previous;
+    public static MinecraftClient mc(){return MinecraftClient.getInstance();}
     static GhostCamaroEntity car(){return mc().player!=null&&mc().player.getVehicle() instanceof GhostCamaroEntity c?c:null;}
     public void onInitializeClient(){
         EntityRendererRegistry.register(GhostCamaro.CAR,CarRenderer::new);

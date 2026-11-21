@@ -1,4 +1,5 @@
-package dev.ghostcamaro.client;
+package dev.ghostcamaro.client.mixin;
+import dev.ghostcamaro.client.*;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
