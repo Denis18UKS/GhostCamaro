@@ -37,7 +37,7 @@ final class CargoSmoke {
         if((System.nanoTime()-started)>450_000_000_000L)throw new AssertionError("cargo observer timeout at "+phase);
         if(observer!=null&&!observer.isAlive()&&phase<NAMES.length-1)throw new AssertionError("observer exited at "+phase);
         if(secondary()&&!configured){
-            if(mc.currentScreen instanceof TitleScreen||mc.currentScreen instanceof AccessibilityOnboardingScreen){
+            if(mc.getOverlay()==null && net.minecraft.client.render.GameRenderer.getRenderTypeSolidProgram()!=null && (mc.currentScreen instanceof TitleScreen||mc.currentScreen instanceof AccessibilityOnboardingScreen)){
                 configured=true;mc.options.onboardAccessibility=false;mc.options.getViewDistance().setValue(3);
                 var address=new ServerAddress("127.0.0.1",25576);
                 ConnectScreen.connect(new TitleScreen(),mc,address,new ServerInfo("Cargo QA","127.0.0.1:25576",true),false);
