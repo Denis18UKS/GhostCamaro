@@ -20,7 +20,7 @@ final class CargoSmoke {
     int phase,frames;boolean configured;long started=System.nanoTime();Process observer;
     static boolean secondary(){return Boolean.getBoolean("cargo.observer");}
     void launch(MinecraftClient mc)throws Exception{
-        Files.createDirectories(DIR);var srv=mc.getServer();srv.setOnlineMode(false);
+        mc.options.pauseOnLostFocus=false;Files.createDirectories(DIR);var srv=mc.getServer();srv.setOnlineMode(false);
         VehicleSmoke.check(srv.openToLan(net.minecraft.world.GameMode.CREATIVE,false,25576),"test LAN opened");
         var info=ProcessHandle.current().info();var command=new ArrayList<String>();command.add(info.command().orElseThrow());
         command.add("-Dcargo.observer=true");command.add("-Dcargo.evidence="+DIR);command.add("-Xmx1100m");
@@ -38,7 +38,7 @@ final class CargoSmoke {
         if(observer!=null&&!observer.isAlive()&&phase<NAMES.length-1)throw new AssertionError("observer exited at "+phase);
         if(secondary()&&!configured){
             if(mc.getOverlay()==null && net.minecraft.client.render.GameRenderer.getRenderTypeSolidProgram()!=null && (mc.currentScreen instanceof TitleScreen||mc.currentScreen instanceof AccessibilityOnboardingScreen)){
-                configured=true;mc.options.onboardAccessibility=false;mc.options.getViewDistance().setValue(3);
+                configured=true;mc.options.pauseOnLostFocus=false;mc.options.onboardAccessibility=false;mc.options.getViewDistance().setValue(3);
                 var address=new ServerAddress("127.0.0.1",25576);
                 ConnectScreen.connect(new TitleScreen(),mc,address,new ServerInfo("Cargo QA","127.0.0.1:25576",true),false);
             }
@@ -46,6 +46,7 @@ final class CargoSmoke {
         }
         if(mc.player==null || visible(mc)==null)return false;
         if(phase==NAMES.length)return true;
+        if(mc.currentScreen instanceof GameMenuScreen)mc.setScreen(null);
         String name=NAMES[phase];Path signal=DIR.resolve("phase-"+name);var car=visible(mc);
         if(!secondary()&&!configured){
             if(mc.getServer().getCurrentPlayerCount()<2)return false;
