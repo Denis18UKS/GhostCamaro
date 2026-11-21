@@ -45,7 +45,7 @@ if (project.hasProperty('dedicatedSmoke')) {
             server()
             runDir 'run/dedicated'
             vmArg '-Dfabric-api.gametest'
-            vmArg '-Dfabric-api.gametest.report-file=gametest.xml'
+            vmArg '-Dfabric-api.gametest.report-file=reports/gametest.xml'
         }
     }
 }

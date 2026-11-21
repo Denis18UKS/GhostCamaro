@@ -55,7 +55,7 @@ public class GhostCamaroEntity extends Entity {
         return new Box(getX()-x,getY(),getZ()-z,getX()+x,getY()+1.30,getZ()+z);
     }
     protected boolean canAddPassenger(Entity e){return e instanceof PlayerEntity&&getPassengerList().size()<2;}
-    protected void updatePassengerPosition(Entity e,PositionUpdater u){Vec3d p=getPos().add(offset(driver(e)?.398:-.398,.31,-.15));u.accept(e,p.x,p.y,p.z);}
+    protected void updatePassengerPosition(Entity e,PositionUpdater u){Vec3d p=getPos().add(offset(driver(e)?.398:-.398,.10,-.15));u.accept(e,p.x,p.y,p.z);}
     protected void removePassenger(Entity e){super.removePassenger(e);if(driver(e)&&!getWorld().isClient){dataTracker.set(DRIVER,Optional.empty());input=0;}}
     public Vec3d updatePassengerForDismount(LivingEntity e){
         for(double lateral:new double[]{driver(e)?1.55:-1.55,driver(e)?-1.55:1.55,2.5,-2.5})for(double fore:new double[]{0,1,-1,2.9,-2.9})for(int y:new int[]{0,1,-1}){

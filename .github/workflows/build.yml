@@ -22,7 +22,7 @@ jobs:
         timeout-minutes: 8
         run: |
           bash gradlew -PdedicatedSmoke runVehicleServer --stacktrace
-          test -s run/dedicated/gametest.xml
+          test -s run/dedicated/reports/gametest.xml
       - name: In-game client and integrated-server check
         timeout-minutes: 16
         env:
@@ -36,7 +36,7 @@ jobs:
         with:
           name: in-game-evidence
           path: |
-            run/dedicated/gametest.xml
+            run/dedicated/reports/gametest.xml
             run/evidence
             run/logs/latest.log
             run/crash-reports
