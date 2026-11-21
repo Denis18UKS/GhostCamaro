@@ -1,0 +1,36 @@
+"""Lossless glTF triangle/index expansion for Minecraft's entity vertex format."""
+import json, struct, pathlib, base64
+root=pathlib.Path(__file__).resolve().parents[1]
+out=root/'build/generated/ghost/assets/ghostcamaro'
+(out/'vehicle').mkdir(parents=True,exist_ok=True);(out/'textures/entity').mkdir(parents=True,exist_ok=True)
+raw=(root/'masters/Ghost_Camaro_V5.glb').read_bytes()
+n=struct.unpack_from('<I',raw,12)[0];g=json.loads(raw[20:20+n]);buf=raw[28+n:]
+def view(i):
+ v=g['bufferViews'][i];p=v.get('byteOffset',0);return buf[p:p+v['byteLength']]
+def acc(i):
+ a=g['accessors'][i];fmt='<'+{'SCALAR':'','VEC2':'2','VEC3':'3','VEC4':'4'}[a['type']]+{5126:'f',5121:'B',5123:'H',5125:'I'}[a['componentType']]
+ v=g['bufferViews'][a['bufferView']];offset=v.get('byteOffset',0)+a.get('byteOffset',0);stride=v.get('byteStride',struct.calcsize(fmt))
+ return [struct.unpack_from(fmt,buf,offset+j*stride) for j in range(a['count'])]
+for i,img in enumerate(g['images']):(out/'textures/entity'/('atlas%d.png'%i)).write_bytes(view(img['bufferView']))
+model={'roots':g['scenes'][0]['nodes'],'nodes':g['nodes'],'clips':{},'meshes':[]}
+with (out/'vehicle/geometry.bin').open('wb') as f:
+ for m in g['meshes']:
+  primitives=[]
+  for p in m['primitives']:
+   pos,uv,norm=(acc(p['attributes'][k]) for k in ['POSITION','TEXCOORD_0','NORMAL'])
+   idx=acc(p['indices']);mat=g['materials'][p['material']];tex=g['textures'][mat['pbrMetallicRoughness']['baseColorTexture']['index']]['source']
+   primitives.append(dict(texture=tex,alpha=mat.get('alphaMode')=='BLEND',glow='emissiveFactor' in mat,count=len(idx)))
+   for (j,) in idx:f.write(struct.pack('>8f',*pos[j],*uv[j],*norm[j]))
+  model['meshes'].append(primitives)
+for a in g['animations']:
+ tracks=[]
+ for ch in a['channels']:
+  sm=a['samplers'][ch['sampler']];tracks.append({'node':ch['target']['node'],'kind':ch['target']['path'],'times':[v[0] for v in acc(sm['input'])],'values':acc(sm['output']),'step':sm.get('interpolation')=='STEP'})
+ model['clips'][a['name']]=tracks
+(out/'vehicle/scene.json').write_text(json.dumps(model,separators=(',',':')))
+bb=json.loads((root/'masters/Ghost_Camaro_V5.bbmodel').read_bytes())
+assert len(model['clips'])==40 and set(model['clips'])=={a['name'] for a in bb['animations']}
+assert sum(p['count']//3 for m in model['meshes'] for p in m)==37800
+audit={'nodes':g['nodes'],'materials':g['materials'],'textures':g['images'],'animation_files':['Ghost_Camaro_V5.bbmodel','Ghost_Camaro_V5.glb']}
+(root/'V5_AUDIT.json').write_text(json.dumps(audit,ensure_ascii=False,indent=1))
+print('V5 asset checks passed: 40 clips, 37,800 triangles')

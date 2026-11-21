@@ -1,0 +1,21 @@
+plugins { id 'fabric-loom' version '1.7.4' }
+version = '6.0.0'
+group = 'dev.ghostcamaro'
+base { archivesName = 'GhostCamaro-Fabric-1.20.1' }
+repositories { mavenCentral() }
+dependencies {
+ minecraft 'com.mojang:minecraft:1.20.1'
+ mappings 'net.fabricmc:yarn:1.20.1+build.10:v2'
+ modImplementation 'net.fabricmc:fabric-loader:0.16.10'
+ modImplementation 'net.fabricmc.fabric-api:fabric-api:0.92.2+1.20.1'
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
+tasks.withType(JavaCompile).configureEach { options.release = 17 }
+tasks.register('portAssets', Exec) {
+ inputs.files('masters/Ghost_Camaro_V5.glb','masters/Ghost_Camaro_V5.bbmodel','tools/port.py')
+ outputs.dir(layout.buildDirectory.dir('generated/ghost'))
+ commandLine 'python3','tools/port.py'
+}
+sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated/ghost'))
+processResources.dependsOn portAssets
+remapJar { archiveFileName = 'GhostCamaro-Fabric-1.20.1-V6.jar' }

@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"ghostcamaro","version":"6.0.0","name":"Ghost Camaro","environment":"*","entrypoints":{"main":["dev.ghostcamaro.GhostCamaro"],"client":["dev.ghostcamaro.client.CamaroClient"]},"mixins":[{"config":"ghostcamaro.client.mixins.json","environment":"client"}],"depends":{"fabricloader":">=0.16.10","minecraft":"1.20.1","java":">=17","fabric-api":"*"}}
