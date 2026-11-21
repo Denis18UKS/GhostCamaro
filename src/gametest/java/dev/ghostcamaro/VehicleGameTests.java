@@ -39,4 +39,33 @@ public class VehicleGameTests {
         t.assertTrue(c.flag(GhostCamaroEntity.HOOD),"critical burst");c.repair();c.refuel();
         t.assertTrue(c.failure()==0&&c.health()==100&&c.fuel()==GhostCamaro.CONFIG.tank,"repair and refuel");t.complete();
     }
+
+    @GameTest(templateName="fabric-gametest-api-v1:empty")
+    public void trunkAndHull(TestContext t){
+        var world=t.getWorld();var pos=t.getAbsolutePos(new BlockPos(4,12,4));
+        var car=new GhostCamaroEntity(GhostCamaro.CAR,world);car.refreshPositionAndAngles(pos.getX()+.5,pos.getY(),pos.getZ()+.5,45,0);
+        t.assertTrue(world.spawnEntity(car),"spawn angled car");
+        var broad=CarHull.bounds(car);
+        var corner=new Box(broad.maxX-.15,broad.minY+.2,broad.maxZ-.15,broad.maxX-.02,broad.minY+.4,broad.maxZ-.02);
+        t.assertTrue(broad.intersects(corner)&&world.getEntityCollisions(null,corner).isEmpty(),"diagonal broad-phase corner is physically empty");
+        var center=Box.of(car.getPos().add(0,.5,0),.12,.12,.12);
+        t.assertTrue(!world.getEntityCollisions(null,center).isEmpty(),"actual car body blocks contact");
+        t.assertTrue(CarHull.select(new Vec3d(1.6,.6,2),new Vec3d(1.6,.6,-2)).isEmpty(),"ray alongside body misses");
+        t.assertTrue(CarHull.select(new Vec3d(.23,2,-2.04),new Vec3d(.23,.5,-2.04)).isPresent(),"trunk ray from above");
+        var a=t.createMockCreativePlayer();var b=t.createMockCreativePlayer();
+        var invA=net.minecraft.screen.GenericContainerScreenHandler.createGeneric9x3(1,a.getInventory(),car.cargo);
+        var invB=net.minecraft.screen.GenericContainerScreenHandler.createGeneric9x3(2,b.getInventory(),car.cargo);
+        car.cargo.setStack(6,new ItemStack(Items.BREAD,15));
+        t.assertTrue(!invA.quickMove(a,6).isEmpty()&&invB.quickMove(b,6).isEmpty(),"only first removal from shared slot succeeds");
+        t.assertTrue(a.getInventory().count(Items.BREAD)==15&&b.getInventory().count(Items.BREAD)==0&&car.cargoDisplay()==0,"no duplicated stacks after competing clicks");
+        for(int i=0;i<27;i++)car.cargo.setStack(i,new ItemStack(GhostCamaro.CAN));
+        int summary=car.cargoDisplay();
+        for(int i=0;i<27;i++)t.assertTrue(CargoDisplay.x(i)-.09>1.663 && CargoDisplay.x(i)+.09<2.348
+            &&Math.abs(CargoDisplay.z(i))+.11<.679 && CargoDisplay.y(i,summary)+.126<.795,"cargo clears floor, walls and closed lid");
+        int before=world.getEntitiesByClass(net.minecraft.entity.ItemEntity.class,broad.expand(3),e->true).stream().mapToInt(e->e.getStack().getCount()).sum();
+        t.assertTrue(before==0,"display creates no item entities");
+        car.remove(net.minecraft.entity.Entity.RemovalReason.KILLED);car.remove(net.minecraft.entity.Entity.RemovalReason.KILLED);
+        int dropped=world.getEntitiesByClass(net.minecraft.entity.ItemEntity.class,broad.expand(3),e->e.getStack().isOf(GhostCamaro.CAN)).stream().mapToInt(e->e.getStack().getCount()).sum();
+        t.assertTrue(dropped==27,"destruction drops exactly the original inventory once");t.complete();
+    }
 }

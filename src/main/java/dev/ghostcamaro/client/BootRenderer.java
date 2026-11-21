@@ -37,7 +37,7 @@ final class BootRenderer {
     }
     static void draw(GhostCamaroEntity car,float dt,MatrixStack m,VertexConsumerProvider buffers,int light){
         int packed=car.cargoDisplay();
-        if(packed==0 || car.openings[3]<=.005f)return;
+        if(packed==0)return;
         float pitch=MathHelper.lerp(dt,car.lastLoadPitch,car.loadPitch),roll=MathHelper.lerp(dt,car.lastLoadRoll,car.loadRoll);
         int i=0;
         for(var kind:KINDS){
@@ -45,7 +45,7 @@ final class BootRenderer {
             if(count==0)continue;
             Parcel parcel=MODELS[kind.ordinal()];var out=buffers.getBuffer(RenderLayer.getEntityCutoutNoCull(parcel.skin()));
             for(int j=0;j<count;j++,i++){
-                m.push();m.translate(CargoDisplay.x(i),CargoDisplay.y(i),CargoDisplay.z(i));
+                m.push();m.translate(CargoDisplay.x(i),CargoDisplay.y(i,packed),CargoDisplay.z(i));
                 m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees((i*7%5-2)*1.2f));
                 m.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(pitch));m.multiply(RotationAxis.POSITIVE_X.rotationDegrees(roll));
                 m.scale(.33f,.33f,.33f);
