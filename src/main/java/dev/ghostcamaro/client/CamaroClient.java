@@ -22,7 +22,29 @@ public class CamaroClient implements ClientModInitializer {
     static KeyBinding[] keys=new KeyBinding[actions.length];public static boolean bonnet;public static int glance=-1;public static float glanceBlend;static Perspective saved;static GhostCamaroEntity previous;
     public static MinecraftClient mc(){return MinecraftClient.getInstance();}
     static GhostCamaroEntity car(){return mc().player!=null&&mc().player.getVehicle() instanceof GhostCamaroEntity c?c:null;}
+    public static float aim,previousAim;
+    static boolean triggerDown;
+    private static void rangeAction(boolean reload){var buf=PacketByteBufs.create();buf.writeBoolean(reload);ClientPlayNetworking.send(GhostCamaro.id("range_action"),buf);}
     public void onInitializeClient(){
+        var reload=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.ghostcamaro.reload",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_G,"category.ghostcamaro"));
+        ClientTickEvents.END_CLIENT_TICK.register(c->{
+            previousAim=aim;
+            boolean equipped=c.player!=null&&c.currentScreen==null&&c.player.getMainHandStack().getItem() instanceof RangeItem;
+            aim=MathHelper.stepTowards(aim,equipped&&c.options.useKey.isPressed()?1:0,.2f);
+            boolean held=equipped&&c.options.attackKey.isPressed();
+            if(equipped){
+                var prop=(RangeItem)c.player.getMainHandStack().getItem();
+                if(held&&(!triggerDown||prop.automatic()&&c.player.age%4==0))rangeAction(false);
+                while(reload.wasPressed())rangeAction(true);
+            }else while(reload.wasPressed()){}
+            triggerDown=held;
+        });
+        HudRenderCallback.EVENT.register((d,t)->{if(mc().player==null||mc().options.hudHidden)return;var stack=mc().player.getMainHandStack();
+            if(stack.getItem() instanceof RangeItem prop){
+                String label=stack.hasNbt()&&stack.getNbt().contains("ReloadEnd")?"…":prop.loaded(stack)+" / "+prop.capacity();
+                d.drawTextWithShadow(mc().textRenderer,label,mc().getWindow().getScaledWidth()-52,mc().getWindow().getScaledHeight()-44,0xffffff);
+            }
+        });
         EntityRendererRegistry.register(GhostCamaro.ROUND,net.minecraft.client.render.entity.FlyingItemEntityRenderer::new);
         EntityRendererRegistry.register(GhostCamaro.CAR,CarRenderer::new);
         for(int i=0;i<keys.length;i++)keys[i]=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.ghostcamaro."+actions[i],InputUtil.Type.KEYSYM,defaults[i],"category.ghostcamaro"));

@@ -82,7 +82,11 @@ public class VehicleGameTests {
         var store=(RouteWorkshop.Reserve)w.getBlockEntity(pp);c.startPump(p,pp);c.fuelTick();
         t.assertTrue(c.fuel()==10.5f&&store.liters==119.75f,"finite pump transfer");
         p.refreshPositionAndAngles(c.getX(),c.getY()-.95,c.getZ()-4,0,0);
-        int count=c.marks().size();((RangeItem)GhostCamaro.PISTOL).fire(w,p);
+        p.setStackInHand(Hand.MAIN_HAND,new ItemStack(GhostCamaro.PISTOL));
+        var weapon=(RangeItem)GhostCamaro.PISTOL;var mag=p.getMainHandStack();weapon.reload(p,mag);
+        t.assertTrue(weapon.loaded(mag)==0,"reload does not grant immediate ammunition");
+        mag.getOrCreateNbt().putLong("ReloadEnd",w.getTime());weapon.inventoryTick(mag,w,p,0,true);
+        t.assertTrue(weapon.loaded(mag)==weapon.capacity(),"timed reload committed");int count=c.marks().size();((RangeItem)GhostCamaro.PISTOL).fire(w,p);
         t.assertTrue(c.marks().size()==count,"projectile in flight before impact");
         var rounds=w.getEntitiesByClass(RangeRound.class,p.getBoundingBox().expand(3),e->true);
         t.assertTrue(rounds.size()==1,"spawned one tracked round");rounds.get(0).tick();

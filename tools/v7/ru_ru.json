@@ -27,5 +27,6 @@
   "key.ghostcamaro.look_l": "Взгляд в левое зеркало",
   "key.ghostcamaro.look_r": "Взгляд в правое зеркало",
   "key.ghostcamaro.look_c": "Взгляд в салонное зеркало",
-  "key.ghostcamaro.glovebox": "Бардачок"
+  "key.ghostcamaro.glovebox": "Бардачок",
+  "key.ghostcamaro.reload": "Перезарядка"
 }

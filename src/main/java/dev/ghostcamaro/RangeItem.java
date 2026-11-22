@@ -12,13 +12,36 @@ import net.minecraft.sound.*;
 /** Arcade test props. Server ray intersects the same local car sections as selection. */
 public class RangeItem extends Item {
     final boolean repeat;RangeItem(boolean repeat){super(new Item.Settings().maxCount(1));this.repeat=repeat;}
-    public TypedActionResult<ItemStack> use(World w,PlayerEntity p,Hand h){if(!w.isClient)fire((ServerWorld)w,p);if(repeat)p.setCurrentHand(h);return TypedActionResult.consume(p.getStackInHand(h));}
-    public int getMaxUseTime(ItemStack s){return 72000;}
-    public void usageTick(World w,LivingEntity living,ItemStack s,int left){if(repeat&&left<71999&&left%5==0&&!w.isClient&&living instanceof PlayerEntity p)fire((ServerWorld)w,p);}
+    public int capacity(){return repeat?24:8;}
+    public int loaded(ItemStack stack){return stack.hasNbt()?MathHelper.clamp(stack.getNbt().getInt("Rounds"),0,capacity()):0;}
+    public boolean automatic(){return repeat;}
+    public TypedActionResult<ItemStack> use(World world,PlayerEntity player,Hand hand){
+        player.setCurrentHand(hand);return TypedActionResult.consume(player.getStackInHand(hand));
+    }
+    public int getMaxUseTime(ItemStack stack){return 72000;}
+    public void reload(PlayerEntity player,ItemStack stack){
+        var n=stack.getOrCreateNbt();if(n.contains("ReloadEnd")||loaded(stack)==capacity())return;
+        if(!player.isCreative()&&!player.getInventory().contains(new ItemStack(repeat?GhostCamaro.RIFLE_AMMO:GhostCamaro.PISTOL_AMMO)))return;
+        n.putLong("ReloadEnd",player.getWorld().getTime()+30);
+    }
+    public void inventoryTick(ItemStack stack,World world,net.minecraft.entity.Entity entity,int slot,boolean selected){
+        if(world.isClient||!(entity instanceof PlayerEntity p)||!stack.hasNbt()||!stack.getNbt().contains("ReloadEnd"))return;
+        var n=stack.getNbt();if(!selected){n.remove("ReloadEnd");return;}
+        if(world.getTime()<n.getLong("ReloadEnd"))return;
+        n.remove("ReloadEnd");int previous=loaded(stack),need=capacity()-previous,added=0;
+        var ammo=repeat?GhostCamaro.RIFLE_AMMO:GhostCamaro.PISTOL_AMMO;
+        if(p.isCreative())added=need;
+        else for(int i=0;i<p.getInventory().size()&&added<need;i++){
+            var spare=p.getInventory().getStack(i);if(spare.isOf(ammo)){int take=Math.min(spare.getCount(),need-added);spare.decrement(take);added+=take;}
+        }
+        n.putInt("Rounds",previous+added);p.getInventory().markDirty();
+    }
     void fire(ServerWorld w,PlayerEntity p){
-        Item ammo=repeat?GhostCamaro.RIFLE_AMMO:GhostCamaro.PISTOL_AMMO;
-        if(p.getItemCooldownManager().isCoolingDown(this))return;
-        if(!p.isCreative()){int i=p.getInventory().getSlotWithStack(new ItemStack(ammo));if(i<0)return;p.getInventory().removeStack(i,1);}
+        var stack=p.getMainHandStack();if(!stack.isOf(this)||p.isSpectator()||p.getItemCooldownManager().isCoolingDown(this))return;
+        if(stack.hasNbt()&&stack.getNbt().contains("ReloadEnd"))return;
+        if(!p.isCreative()&&loaded(stack)==0)return;
+        if(!p.isCreative())stack.getOrCreateNbt().putInt("Rounds",loaded(stack)-1);
+        stack.getOrCreateNbt().putLong("LastFire",w.getTime());
         p.getItemCooldownManager().set(this,repeat?4:8);
         var round=new RangeRound(GhostCamaro.ROUND,w);round.launch(p,repeat?GhostCamaro.CONFIG.rifleDamage:GhostCamaro.CONFIG.pistolDamage);w.spawnEntity(round);
         Vec3d start=p.getEyePos(),dir=p.getRotationVec(1);

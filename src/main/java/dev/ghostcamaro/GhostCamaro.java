@@ -37,6 +37,13 @@ public class GhostCamaro implements ModInitializer {
     static SoundEvent sound(String n){return Registry.register(Registries.SOUND_EVENT,id(n),SoundEvent.of(id(n)));}
     public void onInitialize(){
         RouteWorkshop.init();
+        ServerPlayNetworking.registerGlobalReceiver(id("range_action"),(server,p,handler,buf,sender)->{
+            boolean reload=buf.readBoolean();server.execute(()->{var stack=p.getMainHandStack();
+                if(p.isAlive()&&!p.isSpectator()&&stack.getItem() instanceof RangeItem prop){
+                    if(reload)prop.reload(p,stack);else prop.fire(p.getServerWorld(),p);
+                }
+            });
+        });
         Registry.register(Registries.ITEM_GROUP,id("garage"),FabricItemGroup.builder().displayName(Text.translatable("itemGroup.ghostcamaro")).icon(()->new ItemStack(CAR_ITEM)).entries((c,e)->{e.add(CAR_ITEM);e.add(CAN);e.add(KIT);for(var i:new Item[]{PLATE,WRENCH,PISTOL,RIFLE,PISTOL_AMMO,RIFLE_AMMO})e.add(i);}).build());
         ServerPlayNetworking.registerGlobalReceiver(id("input"),(server,p,h,buf,response)->{int eid=buf.readVarInt(),mask=buf.readUnsignedByte(),act=buf.readUnsignedByte(); int mirror=buf.readUnsignedByte();float yaw=buf.readFloat(),pitch=buf.readFloat();server.execute(()->{
             if(p.getVehicle() instanceof GhostCamaroEntity car && car.getId()==eid&&car.driver(p))car.input(p,mask,act,mirror,yaw,pitch);
