@@ -7,13 +7,14 @@ out=root/'build/next'
 def uid(name):return str(uuid.uuid5(uuid.NAMESPACE_URL,'ghostcamaro/environment/'+name))
 def coords(x,y,z):return ((x-8)/16,(8-z)/16,y/16)
 faces={'north':(1,0,4,5),'south':(3,2,6,7),'east':(2,1,5,6),'west':(0,3,7,4),'up':(4,7,6,5),'down':(1,2,3,0)}
-for model in sorted((assets/'models/block').glob('*.json'))+sorted((assets/'models/item').glob('*.json')):
+for model in sorted((assets/'models/block').glob('*.json'))+sorted((assets/'models/item').glob('*.json'))+sorted((assets/'models/cargo').glob('*.json')):
  n=model.stem
  bpy.ops.wm.read_factory_settings(use_empty=True)
  src=json.loads(model.read_text())
  if not src.get('elements'):continue
- cat='Building' if model.parent.name=='block' else ('Weapons' if n.startswith('range_') else 'Ammunition' if n.endswith('_rounds') else 'Equipment')
+ cat='Cargo' if model.parent.name=='cargo' else 'Building' if model.parent.name=='block' else ('Weapons' if n in ('range_pistol','range_rifle') else 'Ammunition' if (n.endswith('_rounds') or n=='range_round') else 'Equipment')
  imgpath=assets/'textures'/(src['textures']['skin'].split(':')[1]+'.png')
+ if not imgpath.exists():imgpath=root/'src/main/resources/assets/ghostcamaro/textures/entity'/imgpath.name
  im=bpy.data.images.load(str(imgpath));im.pack()
  mat=bpy.data.materials.new(n);mat.use_nodes=True;node=mat.node_tree.nodes.new('ShaderNodeTexImage');node.image=im;node.interpolation='Closest'
  mat.node_tree.links.new(node.outputs['Color'],mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'])

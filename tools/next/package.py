@@ -34,7 +34,7 @@ rows=['| Объект | Blockbench | Blender | FBX | GLB | Minecraft | Клип�
 for p in sorted((out/'Blockbench').rglob('*.bbmodel')):
  rel=p.relative_to(out/'Blockbench');n=rel.stem;cat=rel.parts[0]
  fmt=lambda d,ext:str(Path(d)/rel.with_suffix(ext))
- game=('vehicle/scene.json' if cat=='Vehicles' else ('models/block/' if cat=='Building' else 'models/item/')+n+'.json')
+ game=('vehicle/scene.json' if cat=='Vehicles' else 'BootRenderer.java + textures/entity/'+n+'.png' if cat=='Cargo' else ('models/block/' if cat=='Building' else 'models/item/')+n+'.json')
  rows.append('| '+' | '.join([n,str(p.relative_to(out)),fmt('Blender','.blend'),fmt('Exports/FBX','.fbx'),fmt('Exports/GLB','.glb'),game,'62' if cat=='Vehicles' else '0'])+' |')
 (docs/'ASSET_MANIFEST.md').write_text('\n'.join(rows))
 (docs/'NEXT.md').write_text("""# Ghost Camaro NEXT.1 · промежуточная сборка
@@ -42,7 +42,7 @@ for p in sorted((out/'Blockbench').rglob('*.bbmodel')):
 В комплекте исходники, 40 объектов окружения, переносимые модели предметов и базовая модель автомобиля с 62 клипами. Каждое импортированное в Blender окружение проверено обратным импортом FBX и GLB.
 Стёкла получают собственные сохранённые стадии 0–5. Модуль 0 усиливает стекло, модуль 1 даёт многослойное. На остановленной машине ПКМ ремкомплектом по повреждённому стеклу заменяет выбранную панель. Сначала рисуются непрозрачные поверхности, затем прозрачные. Сколы, осколки и вмятины рассчитываются в игровом рендерере. Для металла применяются локальное подразделение и смещение вершин около попаданий; число отображаемых мест ограничено 24.
 Отдельный ресурспак ставится в resourcepacks. Он заменяет три поверхности ванильного бетона и содержит синтезированный звук мастерской, доступный через /playsound ghostroute:workshop_vent ambient @s.
-Исходные файлы Blender и Blockbench автомобиля содержат 62 клипа V7. Новые процедурные эффекты игры пока отсутствуют в редактируемой модели автомобиля. Стадии вмятин привязаны к текущему списку отметин. Полная библиотека груза, анимации оружия и все пункты большого ТЗ ещё в работе. Ручной прогон и визуальная оценка всех ракурсов не проводились. См. каталог Checks для фактически выполненных игровых проверок и Blender.log для реимпорта.
+Исходные файлы Blender и Blockbench автомобиля содержат 62 клипа V7. Новые процедурные эффекты игры пока отсутствуют в редактируемой модели автомобиля. Стадии вмятин привязаны к текущему списку отметин. Полная библиотека анимаций оружия и все пункты большого ТЗ ещё в работе. Ручной прогон и визуальная оценка всех ракурсов не проводились. См. каталог Checks для фактически выполненных игровых проверок и Blender.log для реимпорта.
 """)
 
 (docs/'CONTROLS.md').write_text("""# Управление NEXT.1

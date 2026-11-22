@@ -74,9 +74,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y blender ffmpeg
           python3 tools/port.py
+          python3 tools/next/cargo.py
           blender -b -t 2 --python-exit-code 1 --python tools/v7/blender_export.py
           blender -b -t 2 --python-exit-code 1 --python tools/next/scenery.py | tee /tmp/export-checks.log
-          test "$(grep -c '^ROUNDTRIP ' /tmp/export-checks.log)" = 49
+          test "$(grep -c '^ROUNDTRIP ' /tmp/export-checks.log)" = 54
       - uses: actions/download-artifact@v4
         with:
           name: GhostCamaro-Fabric-1.20.1-NEXT.1
