@@ -58,3 +58,12 @@ processResources {
         if (detail.path.startsWith('assets/ghostcamaro/lang/') && detail.file.toPath().startsWith(file('src/main/resources').toPath())) detail.exclude()
     }
 }
+
+if (project.hasProperty('networkSmoke')) {
+    loom.runs {
+        networkServer {
+            server()
+            runDir 'run/network-server'
+        }
+    }
+}

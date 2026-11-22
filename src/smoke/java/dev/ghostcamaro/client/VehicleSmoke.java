@@ -24,6 +24,22 @@ public class VehicleSmoke implements ClientModInitializer {
     static void check(boolean b,String m){if(!b)throw new AssertionError(m);System.out.println("[GHOST TEST] "+m);}
     public void onInitializeClient(){ClientTickEvents.END_CLIENT_TICK.register(c->{try{tick(c);}catch(Throwable e){e.printStackTrace();throw new RuntimeException(e);}});}
     void tick(MinecraftClient c)throws Exception{
+        if ("1".equals(System.getenv("GHOST_DEDICATED_CLIENT"))) {
+            if (stage == 0 && c.getOverlay() == null && (c.currentScreen instanceof TitleScreen || c.currentScreen instanceof AccessibilityOnboardingScreen)) {
+                stage = 1;
+                c.options.onboardAccessibility = false;
+                var address = new net.minecraft.client.network.ServerAddress("127.0.0.1", 25578);
+                ConnectScreen.connect(new TitleScreen(), c, address, new net.minecraft.client.network.ServerInfo("Dedicated QA", "127.0.0.1:25578", true), false);
+            }
+            if (c.world != null && c.player != null && CargoSmoke.visible(c) != null && stage == 1) {
+                check(c.getServer() == null, "remote Fabric server delivered the vehicle to the client");
+                Files.createDirectories(Path.of("evidence"));
+                Files.writeString(Path.of("evidence/dedicated-client.txt"), "Connected to standalone server; vehicle tracked over TCP.\n");
+                stage = 2;
+                c.scheduleStop();
+            }
+            return;
+        }
         if(CargoSmoke.secondary()){if(loadTest.tick(c,null))c.scheduleStop();return;}
         if(failure!=null)throw new RuntimeException(failure);
         if(stage==0&&(c.currentScreen instanceof TitleScreen||c.currentScreen instanceof AccessibilityOnboardingScreen)){
