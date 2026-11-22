@@ -4,7 +4,14 @@ root=pathlib.Path(__file__).resolve().parents[1]
 out=root/'build/generated/ghost/assets/ghostcamaro'
 (out/'vehicle').mkdir(parents=True,exist_ok=True);(out/'textures/entity').mkdir(parents=True,exist_ok=True)
 import subprocess, sys
-subprocess.run([sys.executable,str(root/'tools/v7/model.py')],check=True)
+import shutil
+edited = [root/'masters'/('GhostCamaro-V7.'+ext) for ext in ('bbmodel','glb')]
+if any(p.exists() for p in edited):
+ if not all(p.is_file() for p in edited): raise ValueError('Supply both edited V7 masters')
+ (root/'build/v7').mkdir(parents=True,exist_ok=True)
+ for p in edited: shutil.copyfile(p,root/'build/v7'/p.name)
+else:
+ subprocess.run([sys.executable,str(root/'tools/v7/model.py')],check=True)
 raw=(root/'build/v7/GhostCamaro-V7.glb').read_bytes()
 n=struct.unpack_from('<I',raw,12)[0];g=json.loads(raw[20:20+n]);buf=raw[28+n:]
 def view(i):

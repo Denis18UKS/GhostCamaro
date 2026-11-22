@@ -51,6 +51,8 @@ if (project.hasProperty('dedicatedSmoke')) {
 }
 
 portAssets.inputs.dir('tools/v7')
+portAssets.inputs.files(fileTree('masters') { include 'GhostCamaro-V7.*' })
+portAssets.outputs.dir(layout.buildDirectory.dir('v7'))
 processResources {
     eachFile { detail ->
         if (detail.path.startsWith('assets/ghostcamaro/lang/') && detail.file.toPath().startsWith(file('src/main/resources').toPath())) detail.exclude()
