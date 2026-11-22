@@ -46,3 +46,33 @@
 | `Critical_Failure_Burst` | 6 | Soot_00, Soot_01, Soot_02, Soot_03, Soot_04, Soot_05, Soot_06, Soot_07, Soot_08, Soot_09, Soot_10, Flare_00, Flare_01, Flare_02, Flare_03, Flare_04, Hood, Engine_V8, RPM_needle | Финальная шестисекундная фаза после густого дыма |
 
 Углы трёх зеркал управляются процедурно. Новых клипов в мастер-модель не добавлено.
+
+
+## Дополнения V7
+
+Номер, имя и длительность каждого нового клипа в секундах.
+
+```text
+41  Bullet_Impact_Body  0.18s
+42  Bullet_Impact_Armor  0.18s
+43  Mirror_Damage_L  0.30s
+44  Mirror_Damage_R  0.30s
+45  Headlight_Break_L  0.20s
+46  Window_Shatter_L  0.20s
+47  Headlight_Break_R  0.20s
+48  Window_Shatter_R  0.20s
+49  Tire_Damage_FL  0.48s
+50  Tire_Damage_FR  0.48s
+51  Tire_Damage_RL  0.48s
+52  Tire_Damage_RR  0.48s
+53  Windshield_Crack  0.12s
+54  Hood_Damage  0.45s
+55  Bumper_Damage  0.45s
+56  Armor_Install  0.55s
+57  Armor_Remove  0.55s
+58  Fuel_Cap_Open  0.55s
+59  Fuel_Cap_Close  0.55s
+60  Refueling  0.80s
+61  Trunk_Cargo_Shift  0.60s
+62  Vehicle_Repair  0.55s
+```

@@ -46,6 +46,22 @@ public class GhostCamaroEntity extends Entity {
     public NbtList marks(){return dataTracker.get(MARKS).getList("List",10);}
     public boolean damaged(String zone){return dataTracker.get(MARKS).getBoolean(zone);}
     void storeMarks(NbtList list){var state=new NbtCompound();state.put("List",list);for(int i=0;i<list.size();i++)state.putBoolean(list.getCompound(i).getString("Zone"),true);dataTracker.set(MARKS,state);}
+    private void recordImpact(String zone,Vec3d q){
+        NbtCompound state=damageState().copy(),mark=new NbtCompound();
+        mark.putString("Zone",zone);mark.putFloat("X",(float)q.x);mark.putFloat("Y",(float)q.y);mark.putFloat("Z",(float)q.z);
+        var list=state.getList("List",10);
+        if(list.size()>=24)list.remove(0);
+        list.add(mark);state.put("List",list);state.putBoolean(zone,true);dataTracker.set(MARKS,state);
+    }
+    void collisionDamage(double speed){
+        boolean front=speed>0;double z=front?2.58:-2.38;
+        Vec3d contact=getPos().add(offset(0,.55,z));
+        impact(contact,(float)(Math.abs(speed)*GhostCamaro.CONFIG.collisionDamage));
+        if(front && Math.abs(speed)>.32)recordImpact("Hood",new Vec3d(0,.78,1.72));
+        if(front && Math.abs(speed)>.56&&!hasModule(1))recordImpact("Windshield",new Vec3d(.15,1,.35));
+        if(getWorld() instanceof net.minecraft.server.world.ServerWorld sw)
+            sw.spawnParticles(net.minecraft.particle.ParticleTypes.ELECTRIC_SPARK,contact.x,contact.y,contact.z,8,.2,.1,.2,.04);
+    }
     public void impact(Vec3d pos,float damage){
         if(getWorld().isClient)return;Vec3d q=pos.subtract(getPos()).rotateY(getYaw()*MathHelper.RADIANS_PER_DEGREE);
         String side=q.x>=0?"L":"R",zone="Body";double lateral=Math.abs(q.x);
@@ -57,9 +73,12 @@ public class GhostCamaroEntity extends Entity {
         else if(q.z>2.1||q.z< -2.15)zone="Bumper";
         else if(q.z>.62&&q.z<2.2&&q.y>.60)zone="Hood";
         else if(hasModule(0)&&lateral>.6)zone="Armor";
-        NbtCompound m=new NbtCompound();m.putString("Zone",zone);m.putFloat("X",(float)q.x);m.putFloat("Y",(float)q.y);m.putFloat("Z",(float)q.z);
-        var l=marks().copy();if(l.size()>=24)l.remove(0);l.add(m);storeMarks(l);service(zone.equals("Armor")?4:5);
-        hurtCar(damage/(1+.17f*level()));
+        boolean protectedZone=hasModule(1)&&(zone.equals("Windshield")||zone.startsWith("Window")||zone.equals("Hood"))
+            ||hasModule(2)&&(zone.startsWith("Tire")||zone.equals("Bumper"))||zone.equals("Armor");
+        if(protectedZone && damage<6 && (zone.startsWith("Tire")||zone.startsWith("Window")))zone="Body";
+        recordImpact(zone,q);service(zone.equals("Armor")?4:5);
+        hurtCar(damage/(1+.17f*level())*(protectedZone?.65f:1));
+
     }
     void service(int type){dataTracker.set(SERVICE,(int)((getWorld().getTime()&0xffffff)<<4)|type);}
     public int serviceType(){return dataTracker.get(SERVICE)&15;}
@@ -127,9 +146,15 @@ public class GhostCamaroEntity extends Entity {
             p.openHandledScreen(new SimpleNamedScreenHandlerFactory((id,inv,who)->new WorkshopMenu(id,inv,this),Text.translatable("ghostcamaro.workshop")));return ActionResult.CONSUME;
         }
         if(stack.isOf(GhostCamaro.KIT)){
-            if(Math.abs(speed())>.012||(health()>=100&&marks().isEmpty()))return ActionResult.FAIL;
+            if(Math.abs(speed())>.012||(health()>=100&&marks().isEmpty()&&damageState().getKeys().stream().noneMatch(k->!k.equals("List"))))return ActionResult.FAIL;
             float hp=Math.min(100,health()+25);dataTracker.set(HP,hp);if(hp>10)dataTracker.set(FAILURE,0);
-            var l=marks().copy();for(int i=0;i<4&&!l.isEmpty();i++)l.remove(l.size()-1);storeMarks(l);service(3);
+            var state=damageState().copy();var l=state.getList("List",10);
+            for(int i=0;i<4&&!l.isEmpty();i++)l.remove(l.size()-1);
+            // Retain faults whose contact decal aged out. Each kit can repair one such zone.
+            var represented=new java.util.HashSet<String>();
+            for(int i=0;i<l.size();i++)represented.add(l.getCompound(i).getString("Zone"));
+            state.getKeys().stream().filter(k->!k.equals("List")&&!represented.contains(k)).sorted().findFirst().ifPresent(state::remove);
+            state.put("List",l);dataTracker.set(MARKS,state);service(3);
             if(!p.isCreative())stack.decrement(1);return ActionResult.CONSUME;
         }
         if(local.z< -1.58 && (stack.isOf(GhostCamaro.CAN)||(p.isSneaking()&&Math.abs(local.x)<.30&&local.y<.59))){
@@ -183,7 +208,7 @@ public class GhostCamaroEntity extends Entity {
         if(getYaw()!=yaw&&!CarHull.clear(this))setYaw(yaw);setBoundingBox(calculateBoundingBox());
         Vec3d delta=offset(0,0,v);double xx=getX(),zz=getZ();
         double vy=Math.max(-1.2,getVelocity().y-.08);move(MovementType.SELF,new Vec3d(delta.x,vy,delta.z));setVelocity(0,isOnGround()?0:vy*.98,0);
-        double travel=Math.hypot(getX()-xx,getZ()-zz);if(horizontalCollision&&travel<Math.abs(v)*.65){if(Math.abs(before)>.15){Vec3d contact=getPos().add(offset(0,.55,before>0?2.58:-2.38));impact(contact,(float)(Math.abs(before)*c.collisionDamage));if(getWorld() instanceof net.minecraft.server.world.ServerWorld sw)sw.spawnParticles(net.minecraft.particle.ParticleTypes.ELECTRIC_SPARK,contact.x,contact.y,contact.z,8,.2,.1,.2,.04);}v=0;}
+        double travel=Math.hypot(getX()-xx,getZ()-zz);if(horizontalCollision&&travel<Math.abs(v)*.65){if(Math.abs(before)>.15)collisionDamage(before);v=0;}
         dataTracker.set(SPEED,(float)v);dataTracker.set(ROLL,(float)((roll()+Math.copySign(travel,v==0?before:v)/.345)%(Math.PI*2)));
         if(flag(MOTOR)){dataTracker.set(FUEL,Math.max(0,fuel()-c.idleConsumption-(float)Math.abs(v)*c.driveConsumption*(1+.07f*level())));if(fuel()==0)disableEngine();}
         if((flag(LEFT)||flag(RIGHT)||flag(HAZARD))&&age%14==0)playSound(GhostCamaro.CLICK,.26f,1);
@@ -194,8 +219,8 @@ public class GhostCamaroEntity extends Entity {
     public void hurtCar(float amount){if(getWorld().isClient||amount<=0||!Float.isFinite(amount))return;dataTracker.set(HP,Math.max(0,health()-amount));if(health()<=10&&failure()==0){disableEngine();dataTracker.set(FAILURE,1);}}
     public boolean damage(DamageSource source,float amount){if(isInvulnerableTo(source))return false;if(source.getSource() instanceof net.minecraft.entity.projectile.ProjectileEntity shot)impact(shot.getPos(),amount);else hurtCar(amount);return true;}
     public void remove(RemovalReason reason){if(!getWorld().isClient&&!dropped&&reason.shouldDestroy()){dropped=true;ItemScatterer.spawn(getWorld(),this,cargo);cargo.clear();}super.remove(reason);}
-    protected void writeCustomDataToNbt(NbtCompound n){n.putInt("Flags",dataTracker.get(FLAGS)&~FILLING);n.putInt("Modules",dataTracker.get(MODULES));n.put("Marks",marks().copy());n.putFloat("Fuel",fuel());n.putFloat("Health",health());n.putFloat("Speed",speed());n.putInt("Failure",failure());n.put("Mirrors",dataTracker.get(MIRRORS).copy());dataTracker.get(DRIVER).ifPresent(u->n.putUuid("Driver",u));
+    protected void writeCustomDataToNbt(NbtCompound n){n.putInt("Flags",dataTracker.get(FLAGS)&~FILLING);n.putInt("Modules",dataTracker.get(MODULES));n.put("Marks",marks().copy());n.put("DamageState",damageState().copy());n.putFloat("Fuel",fuel());n.putFloat("Health",health());n.putFloat("Speed",speed());n.putInt("Failure",failure());n.put("Mirrors",dataTracker.get(MIRRORS).copy());dataTracker.get(DRIVER).ifPresent(u->n.putUuid("Driver",u));
         DefaultedList<ItemStack> l=DefaultedList.ofSize(27,ItemStack.EMPTY);for(int i=0;i<27;i++)l.set(i,cargo.getStack(i));Inventories.writeNbt(n,l);}
-    protected void readCustomDataFromNbt(NbtCompound n){dataTracker.set(FLAGS,n.getInt("Flags")&~FILLING);dataTracker.set(MODULES,n.contains("Modules")?n.getInt("Modules")&7:7);storeMarks(n.getList("Marks",10).copy());if(n.contains("Fuel"))dataTracker.set(FUEL,n.getFloat("Fuel"));if(n.contains("Health"))dataTracker.set(HP,n.getFloat("Health"));dataTracker.set(SPEED,n.getFloat("Speed"));dataTracker.set(FAILURE,n.getInt("Failure"));dataTracker.set(MIRRORS,n.getCompound("Mirrors").copy());if(n.containsUuid("Driver"))dataTracker.set(DRIVER,Optional.of(n.getUuid("Driver")));
+    protected void readCustomDataFromNbt(NbtCompound n){dataTracker.set(FLAGS,n.getInt("Flags")&~FILLING);dataTracker.set(MODULES,n.contains("Modules")?n.getInt("Modules")&7:7);if(n.contains("DamageState",10))dataTracker.set(MARKS,n.getCompound("DamageState").copy());else storeMarks(n.getList("Marks",10).copy());if(n.contains("Fuel"))dataTracker.set(FUEL,n.getFloat("Fuel"));if(n.contains("Health"))dataTracker.set(HP,n.getFloat("Health"));dataTracker.set(SPEED,n.getFloat("Speed"));dataTracker.set(FAILURE,n.getInt("Failure"));dataTracker.set(MIRRORS,n.getCompound("Mirrors").copy());if(n.containsUuid("Driver"))dataTracker.set(DRIVER,Optional.of(n.getUuid("Driver")));
         DefaultedList<ItemStack> l=DefaultedList.ofSize(27,ItemStack.EMPTY);Inventories.readNbt(n,l);for(int i=0;i<27;i++)cargo.setStack(i,l.get(i));}
 }
