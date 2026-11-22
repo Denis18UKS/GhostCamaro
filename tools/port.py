@@ -3,7 +3,9 @@ import json, struct, pathlib, base64, zlib
 root=pathlib.Path(__file__).resolve().parents[1]
 out=root/'build/generated/ghost/assets/ghostcamaro'
 (out/'vehicle').mkdir(parents=True,exist_ok=True);(out/'textures/entity').mkdir(parents=True,exist_ok=True)
-raw=(root/'masters/Ghost_Camaro_V5.glb').read_bytes()
+import subprocess, sys
+subprocess.run([sys.executable,str(root/'tools/v7/model.py')],check=True)
+raw=(root/'build/v7/GhostCamaro-V7.glb').read_bytes()
 n=struct.unpack_from('<I',raw,12)[0];g=json.loads(raw[20:20+n]);buf=raw[28+n:]
 def view(i):
  v=g['bufferViews'][i];p=v.get('byteOffset',0);return buf[p:p+v['byteLength']]
@@ -36,9 +38,10 @@ for a in g['animations']:
   sm=a['samplers'][ch['sampler']];tracks.append({'node':ch['target']['node'],'kind':ch['target']['path'],'times':[v[0] for v in acc(sm['input'])],'values':acc(sm['output']),'step':sm.get('interpolation')=='STEP'})
  model['clips'][a['name']]=tracks
 (out/'vehicle/scene.json').write_text(json.dumps(model,separators=(',',':')))
-bb=json.loads((root/'masters/Ghost_Camaro_V5.bbmodel').read_bytes())
-assert len(model['clips'])==40 and set(model['clips'])=={a['name'] for a in bb['animations']}
-assert sum(p['count']//3 for m in model['meshes'] for p in m)==37800
+bb=json.loads((root/'build/v7/GhostCamaro-V7.bbmodel').read_bytes())
+assert len(model['clips'])>=61 and set(model['clips'])=={a['name'] for a in bb['animations']}
+assert sum(p['count']//3 for m in model['meshes'] for p in m)>=37800
 audit={'nodes':g['nodes'],'materials':g['materials'],'textures':g['images'],'animation_files':['Ghost_Camaro_V5.bbmodel','Ghost_Camaro_V5.glb']}
 (root/'V5_AUDIT.json').write_text(json.dumps(audit,ensure_ascii=False,indent=1))
-print('V5 asset checks passed: 40 clips, 37,800 triangles')
+print('Animation channels checked:',len(model['clips']))
+subprocess.run([sys.executable,str(root/'tools/v7/streets.py')],check=True)

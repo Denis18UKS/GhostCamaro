@@ -55,7 +55,18 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         if(c.flag(4096))play("Wipers",time%1.4f,false);
         angle("Speed_needle",1,0,0,-Math.abs(c.speed())*1.95f);angle("RPM_needle",1,0,0,-c.rpm()*.00047f);
         if(c.failure()>60){play("Critical_Failure_Burst",Math.min(6,(c.failure()-60+dt)/20f),false);}else if(c.failure()>0){play("Smoke_Critical_Loop",(c.failure()+dt)/20f%3,false);}else if(c.health()<45){play("Smoke_Minor_Loop",time%3,false);if(c.flag(1))play("Breakdown_Stall",time%2,false);}
-        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);BootRenderer.draw(c,dt,m,v,light);hands(c,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
+        if(c.capPhase>0)play("Fuel_Cap_Open",c.capPhase*.55f,false);
+        if(c.flag(131072))play("Refueling",time%.8f,false);
+        for(String w:new String[]{"FL","FR","RL","RR"})if(c.damaged("Tire_"+w))play("Tire_Damage_"+w,.48f,false);
+        for(String side:new String[]{"L","R"}){
+            if(c.damaged("Mirror_"+side))play("Mirror_Damage_"+side,.3f,false);
+            if(c.damaged("Window_"+side))play("Window_Shatter_"+side,.2f,false);
+            if(c.damaged("Lamp_"+side))play("Headlight_Break_"+side,.2f,false);
+        }
+        if(c.damaged("Hood")&&c.openings[2]==0&&c.failure()==0)play("Hood_Damage",.45f,false);
+        if(c.damaged("Bumper"))play("Bumper_Damage",.45f,false);
+        if(c.serviceTime()<.55f){String clip=switch(c.serviceType()){case 1->"Armor_Install";case 2->"Armor_Remove";case 3->"Vehicle_Repair";case 4->"Bullet_Impact_Armor";case 5->"Bullet_Impact_Body";default->null;};if(clip!=null)play(clip,c.serviceTime(),false);}
+        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);DamageRenderer.draw(c,m,v,light);BootRenderer.draw(c,dt,m,v,light);hands(c,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
     }
     private void hands(GhostCamaroEntity car,MatrixStack m,VertexConsumerProvider buffers,int light){
         var client=CamaroClient.mc();var player=client.player;
@@ -74,13 +85,17 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         }
     }
     void draw(GhostCamaroEntity car,int i,MatrixStack m,VertexConsumerProvider vp,int light){
-        Node n=scene.nodes[i];if(n.name.equals("Cargo"))return; m.push();m.translate(tr[i][0],tr[i][1],tr[i][2]);m.multiply(rotation[i]);
+        Node n=scene.nodes[i];if(n.name.equals("Cargo"))return;
+        if((n.name.startsWith("Side_Plate")||n.name.equals("Armor"))&&!car.hasModule(0))return;
+        if((n.name.equals("Engine_Guard")||n.name.equals("Rear_window_shield"))&&!car.hasModule(1))return;
+        if((n.name.equals("Rear_Guard")||n.name.equals("Armored_Plough")||n.name.equals("Bullbar"))&&!car.hasModule(2))return;
+        if((n.name.startsWith("Head_")||n.name.startsWith("BeamPreview_"))&&car.damaged("Lamp_"+n.name.charAt(n.name.length()-1)))return; m.push();m.translate(tr[i][0],tr[i][1],tr[i][2]);m.multiply(rotation[i]);
         if(scale[i][0]!=1||scale[i][1]!=1||scale[i][2]!=1)m.scale(scale[i][0],scale[i][1],scale[i][2]);
         int mirror=n.name.equals("Mirror_glass")?0:n.name.equals("Mirror_glass.001")?1:n.name.equals("Mirror_silver")?2:-1;
         if(mirror>=0){float x=mirror==2?-.103f:-.431f,y=mirror==2?1.128f:.908f,z=mirror==0?.953f:mirror==1?-.953f:0;
             m.translate(x,y,z);m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(car.mirror(mirror,0)));m.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(car.mirror(mirror,1)));m.translate(-x,-y,-z);}
         if(n.mesh>=0)for(var p:scene.meshes[n.mesh]){
-            boolean reflect=mirror>=0&&MirrorSystem.ready&&!MirrorSystem.rendering&&car==CamaroClient.car()&&CamaroClient.mc().options.getPerspective().isFirstPerson();
+            boolean reflect=mirror>=0&&!(mirror<2&&car.damaged("Mirror_"+(mirror==0?"L":"R")))&&MirrorSystem.ready&&!MirrorSystem.rendering&&car==CamaroClient.car()&&CamaroClient.mc().options.getPerspective().isFirstPerson();
             var normal=vp.getBuffer(p.alpha?RenderLayer.getEntityTranslucent(tex[p.texture]):RenderLayer.getEntityCutoutNoCull(tex[p.texture]));
             var entry=m.peek();float[] d=p.data;
             for(int k=0;k<p.count;k+=3){

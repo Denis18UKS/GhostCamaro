@@ -5,6 +5,7 @@ import java.nio.file.*;
 import java.io.*;
 public final class Settings {
     public double maxSpeed=.88, acceleration=.009, normalBrake=.00520833, emergencyBrake=.01420455;
+    public float pistolDamage=5,rifleDamage=8;
     public float tank=60, idleConsumption=.0004f, driveConsumption=.003f, collisionDamage=65;
     public static <T> T load(String file, T defaults, Class<T> type) {
         Path path=FabricLoader.getInstance().getConfigDir().resolve(file);

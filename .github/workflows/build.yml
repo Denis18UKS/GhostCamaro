@@ -15,8 +15,8 @@ jobs:
       - run: bash gradlew build --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: GhostCamaro-Fabric-1.20.1-V6.1
-          path: build/libs/GhostCamaro-Fabric-1.20.1-V6.1.jar
+          name: GhostCamaro-Fabric-1.20.1-V7
+          path: build/libs/GhostCamaro-Fabric-1.20.1-V7.jar
           if-no-files-found: error
       - name: Dedicated Fabric vehicle GameTest
         timeout-minutes: 8

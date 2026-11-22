@@ -33,12 +33,56 @@ public class GhostCamaroEntity extends Entity {
         public void markDirty(){if(!batching){if(!getWorld().isClient)dataTracker.set(LOAD,CargoDisplay.summarize(this));super.markDirty();}}
         @Override public ItemStack removeStack(int slot){ItemStack result=super.removeStack(slot);if(!result.isEmpty())markDirty();return result;}
         @Override public boolean canPlayerUse(PlayerEntity p){return isAlive()&&p.squaredDistanceTo(GhostCamaroEntity.this)<36&&flag(TRUNK)&&Math.abs(speed())<.012;}}
+    static final int CAP=65536, FILLING=131072;
+    private static final TrackedData<Integer> MODULES=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.INTEGER);
+    private static final TrackedData<NbtCompound> MARKS=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.NBT_COMPOUND);
+    private static final TrackedData<Integer> SERVICE=DataTracker.registerData(GhostCamaroEntity.class,TrackedDataHandlerRegistry.INTEGER);
+    public float capPhase;private UUID fillingPlayer;private BlockPos fillingPump;private Hand fillingHand;
+    public boolean hasModule(int i){return (dataTracker.get(MODULES)&(1<<i))!=0;}
+    public int level(){return Integer.bitCount(dataTracker.get(MODULES));}
+    public void module(int i,boolean on){if(i<0||i>2)return;int mask=dataTracker.get(MODULES);dataTracker.set(MODULES,on?mask|1<<i:mask&~(1<<i));service(on?1:2);}
+    public String buildStats(){return String.format(Locale.ROOT,"Lv %d | +%d kg | %.0f%% accel | +%d%% fuel",level(),level()*85,100/(1+.09*level()),level()*7);}
+    public NbtList marks(){return dataTracker.get(MARKS).getList("List",10);}
+    public boolean damaged(String zone){return dataTracker.get(MARKS).getBoolean(zone);}
+    void storeMarks(NbtList list){var state=new NbtCompound();state.put("List",list);for(int i=0;i<list.size();i++)state.putBoolean(list.getCompound(i).getString("Zone"),true);dataTracker.set(MARKS,state);}
+    public void impact(Vec3d pos,float damage){
+        if(getWorld().isClient)return;Vec3d q=pos.subtract(getPos()).rotateY(getYaw()*MathHelper.RADIANS_PER_DEGREE);
+        String side=q.x>=0?"L":"R",zone="Body";double lateral=Math.abs(q.x);
+        if(q.z>1.9&&lateral>.53&&q.y>.40)zone="Lamp_"+side;
+        else if(lateral>.65&&q.y<.62&&(Math.abs(q.z-1.46)<.43||Math.abs(q.z+1.28)<.43))zone="Tire_"+(q.z>0?"F":"R")+side;
+        else if(lateral>.80&&Math.abs(q.z-.43)<.16&&q.y>.82)zone="Mirror_"+side;
+        else if(q.y>.84&&q.z>0&&q.z<.7&&lateral<.70)zone="Windshield";
+        else if(q.y>.82&&lateral>.60&&q.z>-.95&&q.z<.55)zone="Window_"+side;
+        else if(q.z>2.1||q.z< -2.15)zone="Bumper";
+        else if(q.z>.62&&q.z<2.2&&q.y>.60)zone="Hood";
+        else if(hasModule(0)&&lateral>.6)zone="Armor";
+        NbtCompound m=new NbtCompound();m.putString("Zone",zone);m.putFloat("X",(float)q.x);m.putFloat("Y",(float)q.y);m.putFloat("Z",(float)q.z);
+        var l=marks().copy();if(l.size()>=24)l.remove(0);l.add(m);storeMarks(l);service(zone.equals("Armor")?4:5);
+        hurtCar(damage/(1+.17f*level()));
+    }
+    void service(int type){dataTracker.set(SERVICE,(int)((getWorld().getTime()&0xffffff)<<4)|type);}
+    public int serviceType(){return dataTracker.get(SERVICE)&15;}
+    public float serviceTime(){return (((int)getWorld().getTime()-(dataTracker.get(SERVICE)>>>4))&0xffffff)/20f;}
+    public boolean serviceReady(){return flag(CAP)&&!flag(MOTOR)&&Math.abs(speed())<.012&&fuel()<GhostCamaro.CONFIG.tank;}
+    public void startPump(PlayerEntity p,BlockPos pos){if(!serviceReady())return;fillingPlayer=p.getUuid();fillingPump=pos;set(FILLING,true);}
+    public static float canLiters(ItemStack s){return s.hasNbt()&&s.getNbt().contains("Liters")?MathHelper.clamp(s.getNbt().getFloat("Liters"),0,12):12;}
+    void fuelTick(){
+        if(!flag(FILLING))return;
+        var p=fillingPlayer==null?null:getWorld().getPlayerByUuid(fillingPlayer);
+        if(!serviceReady()||p==null||p.squaredDistanceTo(this)>36){set(FILLING,false);return;}
+        if(age%4!=0)return;
+        float amount=Math.min(.25f,GhostCamaro.CONFIG.tank-fuel());
+        if(fillingPump!=null){if(!fillingPump.isWithinDistance(getPos(),6)||!(getWorld().getBlockEntity(fillingPump) instanceof RouteWorkshop.Reserve r)){set(FILLING,false);return;}amount=r.take(amount);}
+        else {var s=p.getStackInHand(fillingHand);if(!s.isOf(GhostCamaro.CAN)||s.getCount()!=1){set(FILLING,false);return;}amount=Math.min(amount,canLiters(s));s.getOrCreateNbt().putFloat("Liters",canLiters(s)-amount);}
+        if(amount<=0){set(FILLING,false);return;}dataTracker.set(FUEL,fuel()+amount);
+        if(age%20==0){playSound(SoundEvents.ITEM_BUCKET_FILL,.35f,.85f);p.sendMessage(Text.literal(String.format(Locale.ROOT,"%.1f / %.0f L",fuel(),GhostCamaro.CONFIG.tank)),true);}
+    }
     private int input,lastInput=-100,lastAction=-1,startTicks,interpolation;
     private double tx,ty,tz; private float ta;
     private boolean dropped;
     public final float[] openings=new float[7];public float loadPitch,loadRoll,lastLoadPitch,lastLoadRoll;private float previousSpeed; public float lastRoll; public int lastGear,shiftAge=-100; public int gear(){return speed()<-.01?-1:(int)Math.min(4,1+Math.floor(Math.abs(speed())/.23));}
     public GhostCamaroEntity(EntityType<? extends GhostCamaroEntity> type,World w){super(type,w);setStepHeight(.66f);}
-    protected void initDataTracker(){dataTracker.startTracking(FLAGS,0);dataTracker.startTracking(LOAD,0);dataTracker.startTracking(SPEED,0f);dataTracker.startTracking(FUEL,GhostCamaro.CONFIG.tank);
+    protected void initDataTracker(){dataTracker.startTracking(FLAGS,0);dataTracker.startTracking(LOAD,0);dataTracker.startTracking(MODULES,0);dataTracker.startTracking(MARKS,new NbtCompound());dataTracker.startTracking(SERVICE,0);dataTracker.startTracking(SPEED,0f);dataTracker.startTracking(FUEL,GhostCamaro.CONFIG.tank);
         dataTracker.startTracking(HP,100f);dataTracker.startTracking(STEER,0f);dataTracker.startTracking(ROLL,0f);dataTracker.startTracking(FAILURE,0);dataTracker.startTracking(DRIVER,Optional.empty());dataTracker.startTracking(MIRRORS,new NbtCompound());}
     public boolean flag(int f){return (dataTracker.get(FLAGS)&f)!=0;}
     private void set(int f,boolean on){int old=dataTracker.get(FLAGS);dataTracker.set(FLAGS,on?old|f:old&~f);}
@@ -48,7 +92,7 @@ public class GhostCamaroEntity extends Entity {
     public float mirror(int i,int axis){return dataTracker.get(MIRRORS).getFloat("m"+i+axis);}
     public String status(){return String.format(Locale.ROOT,"%.0f km/h | %.1f L | %.0f%% | %d rpm",Math.abs(speed()*72),fuel(),health(),rpm());}
     public int rpm(){return flag(MOTOR)?(int)(800+Math.abs(speed())*3200):0;}
-    public void repair(){dataTracker.set(HP,100f);dataTracker.set(FAILURE,0);}
+    public void repair(){storeMarks(new NbtList());dataTracker.set(HP,100f);dataTracker.set(FAILURE,0);}
     public void refuel(){dataTracker.set(FUEL,GhostCamaro.CONFIG.tank);}
     public void disableEngine(){set(MOTOR,false);startTicks=0;}
     public boolean canHit(){return true;}public boolean isCollidable(){return true;} public boolean isPushable(){return false;}
@@ -77,10 +121,20 @@ public class GhostCamaroEntity extends Entity {
         }
         if(getWorld().isClient)return ActionResult.SUCCESS;
         ItemStack stack=p.getStackInHand(hand);
-        if(stack.isOf(GhostCamaro.CAN)||stack.isOf(GhostCamaro.KIT)){
-            if(Math.abs(speed())>.012)return ActionResult.FAIL;
-            if(stack.isOf(GhostCamaro.CAN)){if(fuel()>=GhostCamaro.CONFIG.tank)return ActionResult.FAIL;refuel();}else{if(health()>=100)return ActionResult.FAIL;repair();}
-            if(!p.getAbilities().creativeMode)stack.decrement(1);return ActionResult.CONSUME;
+        if(stack.isOf(GhostCamaro.WRENCH)||stack.isOf(GhostCamaro.PLATE)){
+            if(Math.abs(speed())>.012||flag(MOTOR))return ActionResult.FAIL;
+            p.openHandledScreen(new SimpleNamedScreenHandlerFactory((id,inv,who)->new WorkshopMenu(id,inv,this),Text.translatable("ghostcamaro.workshop")));return ActionResult.CONSUME;
+        }
+        if(stack.isOf(GhostCamaro.KIT)){
+            if(Math.abs(speed())>.012||(health()>=100&&marks().isEmpty()))return ActionResult.FAIL;
+            float hp=Math.min(100,health()+25);dataTracker.set(HP,hp);if(hp>10)dataTracker.set(FAILURE,0);
+            var l=marks().copy();for(int i=0;i<4&&!l.isEmpty();i++)l.remove(l.size()-1);storeMarks(l);service(3);
+            if(!p.isCreative())stack.decrement(1);return ActionResult.CONSUME;
+        }
+        if(local.z< -1.58 && (stack.isOf(GhostCamaro.CAN)||(p.isSneaking()&&Math.abs(local.x)<.30&&local.y<.59))){
+            if(Math.abs(speed())>.012||flag(MOTOR))return ActionResult.FAIL;
+            if(!flag(CAP)||!stack.isOf(GhostCamaro.CAN)){toggle(CAP);return ActionResult.CONSUME;}
+            if(serviceReady()&&canLiters(stack)>0){if(stack.getCount()>1){ItemStack spare=stack.split(stack.getCount()-1);p.getInventory().offerOrDrop(spare);}fillingHand=hand;fillingPump=null;fillingPlayer=p.getUuid();set(FILLING,true);}return ActionResult.CONSUME;
         }
         if(Math.abs(speed())>.04)return ActionResult.FAIL;
         if(local.z < -1.58){if(p.isSneaking()||!flag(TRUNK))toggle(TRUNK);
@@ -105,7 +159,7 @@ public class GhostCamaroEntity extends Entity {
         if(a==14&&m<3&&Float.isFinite(yaw)&&Float.isFinite(pitch)){NbtCompound n=dataTracker.get(MIRRORS).copy();n.putFloat("m"+m+"0",MathHelper.clamp(yaw,-28,28));n.putFloat("m"+m+"1",MathHelper.clamp(pitch,-18,18));dataTracker.set(MIRRORS,n);}
     }
     public void tick(){
-        super.tick();
+        super.tick();capPhase=MathHelper.stepTowards(capPhase,flag(CAP)?1:0,.09f);if(!getWorld().isClient)fuelTick();
         int gear=gear();if(gear!=lastGear){shiftAge=age;lastGear=gear;}
         int[] bits={DOOR_L,DOOR_R,HOOD,TRUNK,WIN_L,WIN_R,GLOVEBOX};
         for(int i=0;i<bits.length;i++)openings[i]=MathHelper.stepTowards(openings[i],flag(bits[i])?1:0,i==4||i==5?.042f:.065f);
@@ -120,27 +174,27 @@ public class GhostCamaroEntity extends Entity {
         boolean braking=back&&v>.004||park;set(STOP,braking);set(PARK,park);set(THROTTLE,gas&&flag(MOTOR));
         double grip=MathHelper.clamp(.6/getWorld().getBlockState(getBlockPos().down()).getBlock().getSlipperiness(),.45,1.25);
         if(park||back&&v>0)v=MathHelper.stepTowards((float)v,0,(float)((park?c.emergencyBrake:c.normalBrake)*grip));
-        else if(flag(MOTOR)&&(gas||back))v+=c.acceleration*(gas?1:-.52)*(health()<45?.37:1)*grip;
+        else if(flag(MOTOR)&&(gas||back))v+=c.acceleration/(1+.09*level())*(gas?1:-.52)*(health()<45?.37:1)*grip;
         else v=MathHelper.stepTowards((float)v,0,.0018f);
-        v=MathHelper.clamp(v,-.27,c.maxSpeed);
-        if(flag(TRUNK)||flag(HOOD))v=0;
+        boolean tire=damaged("Tire_FL")||damaged("Tire_FR")||damaged("Tire_RL")||damaged("Tire_RR");v=MathHelper.clamp(v,-.27,c.maxSpeed*(tire?.58:1));if(tire)turn*=.76f;
+        if(flag(TRUNK)||flag(HOOD)||flag(CAP))v=0;
         float yaw=getYaw();setYaw(yaw-(float)(Math.toDegrees(v/2.74*Math.tan(Math.toRadians(29*turn/(1+1.6*Math.abs(v)))))));
         if(getYaw()!=yaw&&!CarHull.clear(this))setYaw(yaw);setBoundingBox(calculateBoundingBox());
         Vec3d delta=offset(0,0,v);double xx=getX(),zz=getZ();
         double vy=Math.max(-1.2,getVelocity().y-.08);move(MovementType.SELF,new Vec3d(delta.x,vy,delta.z));setVelocity(0,isOnGround()?0:vy*.98,0);
-        double travel=Math.hypot(getX()-xx,getZ()-zz);if(horizontalCollision&&travel<Math.abs(v)*.65){if(Math.abs(before)>.15)hurtCar((float)(Math.abs(before)*c.collisionDamage));v=0;}
+        double travel=Math.hypot(getX()-xx,getZ()-zz);if(horizontalCollision&&travel<Math.abs(v)*.65){if(Math.abs(before)>.15){Vec3d contact=getPos().add(offset(0,.55,before>0?2.58:-2.38));impact(contact,(float)(Math.abs(before)*c.collisionDamage));if(getWorld() instanceof net.minecraft.server.world.ServerWorld sw)sw.spawnParticles(net.minecraft.particle.ParticleTypes.ELECTRIC_SPARK,contact.x,contact.y,contact.z,8,.2,.1,.2,.04);}v=0;}
         dataTracker.set(SPEED,(float)v);dataTracker.set(ROLL,(float)((roll()+Math.copySign(travel,v==0?before:v)/.345)%(Math.PI*2)));
-        if(flag(MOTOR)){dataTracker.set(FUEL,Math.max(0,fuel()-c.idleConsumption-(float)Math.abs(v)*c.driveConsumption));if(fuel()==0)disableEngine();}
+        if(flag(MOTOR)){dataTracker.set(FUEL,Math.max(0,fuel()-c.idleConsumption-(float)Math.abs(v)*c.driveConsumption*(1+.07f*level())));if(fuel()==0)disableEngine();}
         if((flag(LEFT)||flag(RIGHT)||flag(HAZARD))&&age%14==0)playSound(GhostCamaro.CLICK,.26f,1);
         if(failure()>0&&failure()<182){int f=failure()+1;dataTracker.set(FAILURE,f);if(f==143){playSound(GhostCamaro.BURST,1.25f,1);set(HOOD,true);}}
         if(flag(MOTOR)&&age%12==0)playSound(GhostCamaro.ENGINE,.55f,.8f+Math.abs(speed())*1.6f);
     }
     public void updateTrackedPositionAndAngles(double x,double y,double z,float a,float p,int steps,boolean interp){tx=x;ty=y;tz=z;ta=a;interpolation=3;}
     public void hurtCar(float amount){if(getWorld().isClient||amount<=0||!Float.isFinite(amount))return;dataTracker.set(HP,Math.max(0,health()-amount));if(health()<=10&&failure()==0){disableEngine();dataTracker.set(FAILURE,1);}}
-    public boolean damage(DamageSource source,float amount){if(isInvulnerableTo(source))return false;hurtCar(amount);return true;}
+    public boolean damage(DamageSource source,float amount){if(isInvulnerableTo(source))return false;if(source.getSource() instanceof net.minecraft.entity.projectile.ProjectileEntity shot)impact(shot.getPos(),amount);else hurtCar(amount);return true;}
     public void remove(RemovalReason reason){if(!getWorld().isClient&&!dropped&&reason.shouldDestroy()){dropped=true;ItemScatterer.spawn(getWorld(),this,cargo);cargo.clear();}super.remove(reason);}
-    protected void writeCustomDataToNbt(NbtCompound n){n.putInt("Flags",dataTracker.get(FLAGS));n.putFloat("Fuel",fuel());n.putFloat("Health",health());n.putFloat("Speed",speed());n.putInt("Failure",failure());n.put("Mirrors",dataTracker.get(MIRRORS).copy());dataTracker.get(DRIVER).ifPresent(u->n.putUuid("Driver",u));
+    protected void writeCustomDataToNbt(NbtCompound n){n.putInt("Flags",dataTracker.get(FLAGS)&~FILLING);n.putInt("Modules",dataTracker.get(MODULES));n.put("Marks",marks().copy());n.putFloat("Fuel",fuel());n.putFloat("Health",health());n.putFloat("Speed",speed());n.putInt("Failure",failure());n.put("Mirrors",dataTracker.get(MIRRORS).copy());dataTracker.get(DRIVER).ifPresent(u->n.putUuid("Driver",u));
         DefaultedList<ItemStack> l=DefaultedList.ofSize(27,ItemStack.EMPTY);for(int i=0;i<27;i++)l.set(i,cargo.getStack(i));Inventories.writeNbt(n,l);}
-    protected void readCustomDataFromNbt(NbtCompound n){dataTracker.set(FLAGS,n.getInt("Flags"));if(n.contains("Fuel"))dataTracker.set(FUEL,n.getFloat("Fuel"));if(n.contains("Health"))dataTracker.set(HP,n.getFloat("Health"));dataTracker.set(SPEED,n.getFloat("Speed"));dataTracker.set(FAILURE,n.getInt("Failure"));dataTracker.set(MIRRORS,n.getCompound("Mirrors").copy());if(n.containsUuid("Driver"))dataTracker.set(DRIVER,Optional.of(n.getUuid("Driver")));
+    protected void readCustomDataFromNbt(NbtCompound n){dataTracker.set(FLAGS,n.getInt("Flags")&~FILLING);dataTracker.set(MODULES,n.contains("Modules")?n.getInt("Modules")&7:7);storeMarks(n.getList("Marks",10).copy());if(n.contains("Fuel"))dataTracker.set(FUEL,n.getFloat("Fuel"));if(n.contains("Health"))dataTracker.set(HP,n.getFloat("Health"));dataTracker.set(SPEED,n.getFloat("Speed"));dataTracker.set(FAILURE,n.getInt("Failure"));dataTracker.set(MIRRORS,n.getCompound("Mirrors").copy());if(n.containsUuid("Driver"))dataTracker.set(DRIVER,Optional.of(n.getUuid("Driver")));
         DefaultedList<ItemStack> l=DefaultedList.ofSize(27,ItemStack.EMPTY);Inventories.readNbt(n,l);for(int i=0;i<27;i++)cargo.setStack(i,l.get(i));}
 }

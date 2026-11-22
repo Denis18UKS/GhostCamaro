@@ -1,5 +1,5 @@
 plugins { id 'fabric-loom' version '1.7.4' }
-version = '6.1.0'
+version = '7.0.0'
 group = 'dev.ghostcamaro'
 base { archivesName = 'GhostCamaro-Fabric-1.20.1' }
 repositories { mavenCentral() }
@@ -12,13 +12,13 @@ dependencies {
 java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
 tasks.withType(JavaCompile).configureEach { options.release = 17 }
 tasks.register('portAssets', Exec) {
- inputs.files('masters/Ghost_Camaro_V5.glb','masters/Ghost_Camaro_V5.bbmodel','tools/port.py')
+ inputs.files('masters/Ghost_Camaro_V5.glb','masters/Ghost_Camaro_V5.bbmodel','tools/port.py','tools/v7/model.py')
  outputs.dir(layout.buildDirectory.dir('generated/ghost'))
  commandLine 'python3','tools/port.py'
 }
 sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated/ghost'))
 processResources.dependsOn portAssets
-remapJar { archiveFileName = 'GhostCamaro-Fabric-1.20.1-V6.1.jar' }
+remapJar { archiveFileName = 'GhostCamaro-Fabric-1.20.1-V7.jar' }
 
 // Test-only entrypoint. Neither its classes nor its entrypoint are in the published JAR.
 if (project.hasProperty('vehicleSmoke')) {
@@ -47,5 +47,12 @@ if (project.hasProperty('dedicatedSmoke')) {
             vmArg '-Dfabric-api.gametest'
             vmArg '-Dfabric-api.gametest.report-file=reports/gametest.xml'
         }
+    }
+}
+
+portAssets.inputs.dir('tools/v7')
+processResources {
+    eachFile { detail ->
+        if (detail.path.startsWith('assets/ghostcamaro/lang/') && detail.file.toPath().startsWith(file('src/main/resources').toPath())) detail.exclude()
     }
 }

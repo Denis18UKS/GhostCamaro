@@ -25,12 +25,16 @@ public class GhostCamaro implements ModInitializer {
             if(!CarHull.clear(e)||!c.getWorld().spawnEntity(e))return ActionResult.FAIL;
             if(c.getPlayer()!=null&&!c.getPlayer().getAbilities().creativeMode)c.getStack().decrement(1);return ActionResult.CONSUME;
         }});
-    public static final Item CAN=item("fuel_can",new Item(new Item.Settings().maxCount(16))), KIT=item("repair_kit",new Item(new Item.Settings().maxCount(16)));
+    public static final Item CAN=item("fuel_can",new Item(new Item.Settings().maxCount(1))), KIT=item("repair_kit",new Item(new Item.Settings().maxCount(16)));
+    public static final Item PLATE=item("armor_panel",new Item(new Item.Settings())),WRENCH=item("workshop_key",new Item(new Item.Settings().maxCount(1)));
+    public static final Item PISTOL_AMMO=item("pistol_rounds",new Item(new Item.Settings())),RIFLE_AMMO=item("rifle_rounds",new Item(new Item.Settings()));
+    public static final Item PISTOL=item("range_pistol",new RangeItem(false)),RIFLE=item("range_rifle",new RangeItem(true));
     static Item item(String n,Item i){return Registry.register(Registries.ITEM,id(n),i);}
     public static final SoundEvent ENGINE=sound("engine"), START=sound("start"), HORN=sound("horn"), CLICK=sound("click"), BURST=sound("burst");
     static SoundEvent sound(String n){return Registry.register(Registries.SOUND_EVENT,id(n),SoundEvent.of(id(n)));}
     public void onInitialize(){
-        Registry.register(Registries.ITEM_GROUP,id("garage"),FabricItemGroup.builder().displayName(Text.translatable("itemGroup.ghostcamaro")).icon(()->new ItemStack(CAR_ITEM)).entries((c,e)->{e.add(CAR_ITEM);e.add(CAN);e.add(KIT);}).build());
+        RouteWorkshop.init();
+        Registry.register(Registries.ITEM_GROUP,id("garage"),FabricItemGroup.builder().displayName(Text.translatable("itemGroup.ghostcamaro")).icon(()->new ItemStack(CAR_ITEM)).entries((c,e)->{e.add(CAR_ITEM);e.add(CAN);e.add(KIT);for(var i:new Item[]{PLATE,WRENCH,PISTOL,RIFLE,PISTOL_AMMO,RIFLE_AMMO})e.add(i);}).build());
         ServerPlayNetworking.registerGlobalReceiver(id("input"),(server,p,h,buf,response)->{int eid=buf.readVarInt(),mask=buf.readUnsignedByte(),act=buf.readUnsignedByte(); int mirror=buf.readUnsignedByte();float yaw=buf.readFloat(),pitch=buf.readFloat();server.execute(()->{
             if(p.getVehicle() instanceof GhostCamaroEntity car && car.getId()==eid&&car.driver(p))car.input(p,mask,act,mirror,yaw,pitch);
         });});
