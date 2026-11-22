@@ -64,3 +64,34 @@ jobs:
           path: |
             run/network-server/launch.log
             run/evidence/dedicated-client.txt
+  distribution:
+    needs: [build, dedicated-network]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender ffmpeg
+          python3 tools/port.py
+          blender -b -t 2 --python-exit-code 1 --python tools/v7/blender_export.py
+          blender -b -t 2 --python-exit-code 1 --python tools/next/scenery.py | tee /tmp/export-checks.log
+          test "$(grep -c '^ROUNDTRIP ' /tmp/export-checks.log)" = 49
+      - uses: actions/download-artifact@v4
+        with:
+          name: GhostCamaro-Fabric-1.20.1-NEXT.1
+          path: build/next/Minecraft
+      - uses: actions/download-artifact@v4
+        with:
+          name: in-game-evidence
+          path: build/next/Checks/Minecraft
+      - uses: actions/download-artifact@v4
+        with:
+          name: dedicated-network
+          path: build/next/Checks/Network
+      - run: python3 tools/next/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GhostCamaro-NEXT-Project
+          path: build/next/
+          if-no-files-found: error
