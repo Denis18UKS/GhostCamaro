@@ -68,4 +68,30 @@ public class VehicleGameTests {
         int dropped=world.getEntitiesByClass(net.minecraft.entity.ItemEntity.class,broad.expand(3),e->e.getStack().isOf(GhostCamaro.CAN)).stream().mapToInt(e->e.getStack().getCount()).sum();
         t.assertTrue(dropped==27,"destruction drops exactly the original inventory once");t.complete();
     }
+    @GameTest(templateName="fabric-gametest-api-v1:empty")
+    public void workshopAndDamage(TestContext t){
+        var w=t.getWorld();var base=t.getAbsolutePos(new BlockPos(2,8,2));var c=new GhostCamaroEntity(GhostCamaro.CAR,w);
+        c.refreshPositionAndAngles(base.getX()+.5,base.getY(),base.getZ()+.5,0,0);
+        var tag=c.writeNbt(new NbtCompound());tag.putFloat("Fuel",10);c.readNbt(tag);
+        var p=t.createMockCreativeServerPlayerInWorld();p.refreshPositionAndAngles(c.getX(),c.getY(),c.getZ()-2.9,0,0);
+        t.assertTrue(w.spawnEntity(c),"spawn V7 Camaro");p.setStackInHand(Hand.MAIN_HAND,new ItemStack(GhostCamaro.CAN));
+        c.interactAt(p,new Vec3d(0,.50,-2.2),Hand.MAIN_HAND);t.assertTrue(c.serviceReady(),"fuel door opens");
+        c.interactAt(p,new Vec3d(0,.50,-2.2),Hand.MAIN_HAND);c.age=4;c.fuelTick();
+        t.assertTrue(c.fuel()==10.25f&&GhostCamaroEntity.canLiters(p.getMainHandStack())==11.75f,"conserved can-to-tank transfer");
+        var pp=base.add(3,0,0);w.setBlockState(pp,RouteWorkshop.pump.getDefaultState());
+        var store=(RouteWorkshop.Reserve)w.getBlockEntity(pp);c.startPump(p,pp);c.fuelTick();
+        t.assertTrue(c.fuel()==10.5f&&store.liters==119.75f,"finite pump transfer");
+        var ui=new WorkshopMenu(3,p.getInventory(),c);
+        ui.onSlotClick(0,0,net.minecraft.screen.slot.SlotActionType.PICKUP,p);t.assertTrue(c.hasModule(0),"install door panels");
+        ui.onSlotClick(0,0,net.minecraft.screen.slot.SlotActionType.PICKUP,p);t.assertTrue(!c.hasModule(0),"remove panels");
+        c.impact(c.getPos().add(c.offset(.88,.70,2.1)),8);c.impact(c.getPos().add(c.offset(.9,.4,1.45)),7);
+        t.assertTrue(c.damaged("Lamp_L")&&c.damaged("Tire_FL")&&!c.damaged("Lamp_R"),"localized lamp and tire");
+        var copy=new GhostCamaroEntity(GhostCamaro.CAR,w);copy.readNbt(c.writeNbt(new NbtCompound()));
+        t.assertTrue(copy.damaged("Lamp_L")&&copy.damaged("Tire_FL")&&copy.fuel()==10.5f,"V7 NBT persisted");
+        for(int i=0;i<28;i++)c.impact(c.getPos().add(0,.5,0),.25f);
+        t.assertTrue(c.marks().size()==24,"bounded decals");
+        p.setStackInHand(Hand.MAIN_HAND,new ItemStack(GhostCamaro.KIT));float hp=c.health();c.interactAt(p,new Vec3d(.8,.7,0),Hand.MAIN_HAND);
+        t.assertTrue(c.health()>hp&&c.marks().size()==20,"incremental repair");
+        t.assertTrue(RouteWorkshop.catalog.size()==40,"40 architectural items");t.complete();
+    }
 }

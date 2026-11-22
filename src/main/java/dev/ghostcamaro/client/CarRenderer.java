@@ -63,6 +63,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
             if(c.damaged("Window_"+side))play("Window_Shatter_"+side,.2f,false);
             if(c.damaged("Lamp_"+side))play("Headlight_Break_"+side,.2f,false);
         }
+        if(c.damaged("Windshield"))play("Windshield_Crack",.12f,false);
         if(c.damaged("Hood")&&c.openings[2]==0&&c.failure()==0)play("Hood_Damage",.45f,false);
         if(c.damaged("Bumper"))play("Bumper_Damage",.45f,false);
         if(c.serviceTime()<.55f){String clip=switch(c.serviceType()){case 1->"Armor_Install";case 2->"Armor_Remove";case 3->"Vehicle_Repair";case 4->"Bullet_Impact_Armor";case 5->"Bullet_Impact_Body";default->null;};if(clip!=null)play(clip,c.serviceTime(),false);}
@@ -85,7 +86,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         }
     }
     void draw(GhostCamaroEntity car,int i,MatrixStack m,VertexConsumerProvider vp,int light){
-        Node n=scene.nodes[i];if(n.name.equals("Cargo"))return;
+        Node n=scene.nodes[i];if(n.name.equals("Cargo")||n.name.equals("Windshield_Fracture")&&!car.damaged("Windshield"))return;
         if((n.name.startsWith("Side_Plate")||n.name.equals("Armor"))&&!car.hasModule(0))return;
         if((n.name.equals("Engine_Guard")||n.name.equals("Rear_window_shield"))&&!car.hasModule(1))return;
         if((n.name.equals("Rear_Guard")||n.name.equals("Armored_Plough")||n.name.equals("Bullbar"))&&!car.hasModule(2))return;

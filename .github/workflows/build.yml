@@ -40,3 +40,9 @@ jobs:
             run/evidence
             run/logs/latest.log
             run/crash-reports
+      - name: Open master project in Blockbench
+        timeout-minutes: 6
+        run: |
+          npm install --prefix "$RUNNER_TEMP/bb-test" playwright@1.55.0
+          "$RUNNER_TEMP/bb-test/node_modules/.bin/playwright" install chromium
+          NODE_PATH="$RUNNER_TEMP/bb-test/node_modules" node tools/v7/blockbench.cjs

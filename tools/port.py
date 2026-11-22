@@ -39,9 +39,9 @@ for a in g['animations']:
  model['clips'][a['name']]=tracks
 (out/'vehicle/scene.json').write_text(json.dumps(model,separators=(',',':')))
 bb=json.loads((root/'build/v7/GhostCamaro-V7.bbmodel').read_bytes())
-assert len(model['clips'])>=61 and set(model['clips'])=={a['name'] for a in bb['animations']}
+assert len(model['clips'])==62 and set(model['clips'])=={a['name'] for a in bb['animations']}
 assert sum(p['count']//3 for m in model['meshes'] for p in m)>=37800
 audit={'nodes':g['nodes'],'materials':g['materials'],'textures':g['images'],'animation_files':['Ghost_Camaro_V5.bbmodel','Ghost_Camaro_V5.glb']}
-(root/'V5_AUDIT.json').write_text(json.dumps(audit,ensure_ascii=False,indent=1))
+(root/'build/v7/PORT_AUDIT.json').write_text(json.dumps(audit,ensure_ascii=False,indent=1))
 print('Animation channels checked:',len(model['clips']))
 subprocess.run([sys.executable,str(root/'tools/v7/streets.py')],check=True)

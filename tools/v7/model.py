@@ -47,6 +47,22 @@ for side,sgn in [('L',1),('R',-1)]:panel('Side_Plate_'+side,(.10,.575,.922*sgn),
 panel('Engine_Guard',(-1.56,.49,0),(.90,.035,.58),'Front',2)
 # Thin graphite braces under the bumpers, independently removable.
 panel('Rear_Guard',(2.39,.36,0),(.075,.09,1.24),'Rear',2)
+# Master-scene cargo kit. Minecraft selects the corresponding V6.1 baked meshes per slot.
+joint('Boot_Cargo_Kit',(1.99,.51,0),'Cargo')
+for name,z,mat in [('Food',-.51,11),('Medical',-.255,10),('Tools',0,2),('Fuel',.255,1),('Parcel',.51,11)]:
+ part='Load_'+name;panel(part,(2.04,.56,z),(.17,.096,.21),'Boot_Cargo_Kit',mat)
+ if name in ('Tools','Medical','Fuel'):
+  panel(part+'_lip',(2.04,.612,z),(.173,.014,.213),part,2)
+ if name in ('Tools','Fuel'):
+  for k,off in enumerate([-.035,.035]):panel(part+'_post'+str(k),(2.04,.633,z+off),(.014,.03,.012),part,2)
+  panel(part+'_handle',(2.04,.65,z),(.014,.01,.083),part,2)
+ if name in ('Food','Parcel'):panel(part+'_tape',(2.04,.61,z),(.17,.004,.022),part,12)
+ if name=='Medical':
+  panel('Medical_stripe_A',(2.04,.621,z),(.057,.003,.013),part,14)
+  panel('Medical_stripe_B',(2.04,.623,z),(.013,.003,.053),part,14)
+joint('Windshield_Fracture',(-.365,1.01,.18),'Windows')
+for k,(dx,dy,dz) in enumerate([(.075,.046,.004),(.011,.006,.07),(.038,.023,.004)]):
+ panel('Fracture_Line_'+str(k),(-1.36+.03*k,.41+.018*k,.18+.02*k),(dx,.002,dz),'Windshield_Fracture',12,.57)
 def wrap(name,target,pivot,parent):
  joint(name,pivot,parent);j=ids[name];k=ids[target];old=next(i for i,n in enumerate(nodes) if k in n.get('children',[]))
  prev=world(k);nodes[old]['children'].remove(k);nodes[j]['children'].append(k);nodes[k]['translation']=[a-b for a,b in zip(prev,pivot)]
@@ -77,6 +93,7 @@ for side in ['L','R']:
  clip('Headlight_Break_'+side,[('Lamp_Damage_'+side,'scale',[(0,[1,1,1]),(.2,[.65,.75,.88])])],.2)
  clip('Window_Shatter_'+side,[('Glass_Damage_'+side,'scale',[(0,[1,1,1]),(.2,[.001,.001,.001])])],.2)
 for wheel in ['FL','FR','RL','RR']:clip('Tire_Damage_'+wheel,[('Wheel_'+wheel,'scale',[(0,[1,1,1]),(.48,[1,.87,1.035])])],.48)
+clip('Windshield_Crack',[move('Windshield_Fracture',[(0,[0,0,0]),(.12,[1,.6,0])])],.12)
 clip('Hood_Damage',[rot('Hood',2,[(0,0),(.12,-4),(.45,-2.3)])],.45)
 clip('Bumper_Damage',[move('Armored_Plough',[(0,[0]*3),(.15,[.054,.013,0]),(.45,[.032,.008,0])])],.45)
 for name,rev in [('Armor_Install',False),('Armor_Remove',True)]:
@@ -89,7 +106,7 @@ assert len(b['animations'])==len(g['animations'])
 b['name']='GhostCamaro-V7';(dest/'GhostCamaro-V7.bbmodel').write_text(json.dumps(b,separators=(',',':')))
 while len(buf)%4:buf.append(0)
 g['buffers'][0]['byteLength']=len(buf);encoded=json.dumps(g,separators=(',',':')).encode();encoded+=b' '*(-len(encoded)%4)
-(dest/'GhostCamaro-V7.glb').write_bytes(struct.pack('<4sIIII4s',b'glTF',2,28+len(encoded)+len(buf),len(encoded),0x4e4f534a,b'') if False else struct.pack('<4sIIII',b'glTF',2,28+len(encoded)+len(buf),len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(buf),0x004e4942)+buf)
+(dest/'GhostCamaro-V7.glb').write_bytes(struct.pack('<4sIIII',b'glTF',2,28+len(encoded)+len(buf),len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(buf),0x004e4942)+buf)
 tex=dest/'Textures';tex.mkdir(exist_ok=True)
 for t in b['textures']:(tex/Path(t['name']).name).write_bytes(base64.b64decode(t['source'].split(',')[1]))
 (dest/'ANIMATIONS.txt').write_text('\n'.join(f"{i+1:02}  {a['name']}  {a['length']:.2f}s" for i,a in enumerate(b['animations'])))
