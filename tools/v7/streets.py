@@ -22,6 +22,7 @@ russian='Старый бетон|Треснувший бетон|Кремова�
 langs={'ru_ru':{},'en_us':{}}
 def label(key,a,b):langs['ru_ru'][key]=a;langs['en_us'][key]=b
 faces={f:{'texture':'#skin'}for f in 'north south east west up down'.split()}
+shapes={}
 for i,n in enumerate(names):
  rng=random.Random(i+1979); concrete=(127,129,119);asphalt=(60,63,61);wood=(133,103,68);metal=(86,105,103);dark=(52,56,52);light=(191,182,155)
  c=[concrete,concrete,(179,169,145),(185,148,97),(128,152,152),(173,158,132),(155,94,67),(147,91,70),metal,metal,metal,dark,asphalt,(81,82,77),asphalt,asphalt,asphalt,concrete,asphalt,(163,151,110),(142,85,63),concrete,concrete,(120,78,56),concrete,concrete,(138,129,94),concrete,(185,156,91),wood,(169,133,83),(155,176,158),wood,(96,112,106),(166,119,80),(111,125,71),(100,114,87),(106,105,96),(71,89,78),wood][i]
@@ -61,10 +62,19 @@ for i,n in enumerate(names):
  if i==33:boxes=[(3,0,3,13,15,13)];tile.rect(0,5,31,7,dark);tile.rect(0,24,31,26,dark)
  if i==34:boxes=[(3,0,3,13,2,13),(4,2,4,12,9,12),(3,9,3,13,16,13)];tile.rect(3,4,28,14,dark);tile.rect(5,6,26,12,(143,165,139));tile.rect(5,19,27,21,(146,64,48))
  if i==39:boxes=[(1,10,1,15,13,15)]+[(x,0,z,x+2,10,z+2) for x in (2,12)for z in(2,12)]
+ if i==35:boxes=[(4,0,5,12,11,11),(5,11,6,7,13,10),(9,11,6,11,13,10),(5,13,6,11,14,10),(4,11,5,6,12,7)]
+ if i==38:boxes.extend([(3,8,5,4,9,7),(11,8,7,12,15,8)])
+ if i==18:boxes=[(0,0,0,16,2,16),(0,2,0,4,3,16),(12,2,0,16,3,16),(4,2,0,12,3,3)]
+ shapes[n]=boxes
  tile.save(f'textures/block/{n}.png');skin='ghostcamaro:block/'+n
  put(f'models/block/{n}.json',dict(textures={'skin':skin,'particle':skin},elements=[{'from':v[:3],'to':v[3:],'faces':faces}for v in boxes]))
  put(f'blockstates/{n}.json',dict(variants={'facing='+direction:{'model':skin,'y':j*90}for j,direction in enumerate(['north','east','south','west'])}))
  put(f'models/item/{n}.json',{'parent':skin});label('block.ghostcamaro.'+n,russian[i],n.replace('_',' ').title())
+put('vehicle/scenery_shapes.json',shapes)
+# Common building props can be recovered when rebuilding a set. A fuel pump's reserve belongs to its placed block.
+loot=root/'build/generated/ghost/data/ghostcamaro/loot_tables/blocks';loot.mkdir(parents=True,exist_ok=True)
+for n in names:
+ if n!='fuel_pump':(loot/(n+'.json')).write_text(json.dumps(dict(type='minecraft:block',pools=[dict(rolls=1,conditions=[dict(condition='minecraft:survives_explosion')],entries=[dict(type='minecraft:item',name='ghostcamaro:'+n)])])))
 for i,(n,ru) in enumerate(zip('armor_panel workshop_key pistol_rounds rifle_rounds range_pistol range_rifle'.split(),['Панель брони','Ключ мастерской','Патроны для пистолета','Патроны для винтовки','Полигонный пистолет','Полигонная винтовка'])):
  rng=random.Random(6+i);t=Tile((0,0,0,0),0);steel=(109,119,114);grip=(98,74,54);gold=(174,144,86)
  if i==0:t.rect(4,6,27,24,steel);t.line(5,6,26,6,light)

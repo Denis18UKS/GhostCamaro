@@ -20,6 +20,14 @@ import net.minecraft.world.*;
 
 public final class RouteWorkshop {
     static final String NAMES="old_concrete cracked_concrete cream_plaster ochre_plaster faded_blue_plaster damaged_plaster brick_wall chipped_brick old_window broken_window service_door balcony_rail asphalt worn_asphalt cracked_asphalt lane_white lane_yellow kerb pothole road_sign brick_rubble concrete_chunk rubble exposed_rebar broken_wall debris sandbags concrete_barrier road_barrier wood_crate aid_box medical_case pallet barrel fuel_pump jerry_can generator toolbox field_radio mechanic_bench";
+    private static final Map<String,double[][]> SHAPES=readShapes();
+    private static Map<String,double[][]> readShapes(){
+        var input=RouteWorkshop.class.getResourceAsStream("/assets/ghostcamaro/vehicle/scenery_shapes.json");
+        if(input==null)throw new IllegalStateException("Missing scenery geometry");
+        try(var reader=new java.io.InputStreamReader(input,java.nio.charset.StandardCharsets.UTF_8)){
+            return new com.google.gson.Gson().fromJson(reader,new com.google.gson.reflect.TypeToken<Map<String,double[][]>>(){}.getType());
+        }catch(java.io.IOException ex){throw new java.io.UncheckedIOException(ex);}
+    }
     static final List<Item> catalog=new ArrayList<>();
     static Block pump;static BlockEntityType<Reserve> reserve;
     public static void init(){
@@ -35,17 +43,16 @@ public final class RouteWorkshop {
     static class Prop extends HorizontalFacingBlock {
         final String name;final VoxelShape[] shapes=new VoxelShape[4];
         Prop(String n){super(AbstractBlock.Settings.copy(Blocks.STONE).strength(1.8f).nonOpaque());name=n;setDefaultState(getDefaultState().with(Properties.HORIZONTAL_FACING,Direction.NORTH));
-            double[] b=box(n);for(Direction dir:Direction.Type.HORIZONTAL){double x=b[0],z=b[2],X=b[3],Z=b[5];int turns=(dir.getHorizontal()+2)%4;
-                for(int i=0;i<turns;i++){double next=16-Z,nextMax=16-z;z=x;Z=X;x=next;X=nextMax;}
-                shapes[dir.getHorizontal()]=Block.createCuboidShape(x,b[1],z,X,b[4],Z);}}
-        static double[] box(String n){return switch(n){
-            case "old_window","broken_window","service_door","balcony_rail","broken_wall"->new double[]{0,0,6,16,16,10};
-            case "kerb","pallet","pothole","debris","rubble","concrete_chunk","brick_rubble","exposed_rebar"->new double[]{0,0,1,16,4,15};
-            case "sandbags","road_barrier","concrete_barrier"->new double[]{0,0,4,16,11,12};
-            case "toolbox","field_radio","medical_case","aid_box"->new double[]{2,0,3,14,8,13};
-            case "fuel_pump","jerry_can","barrel","road_sign"->new double[]{3,0,3,13,16,13};
-            case "mechanic_bench","wood_crate","generator"->new double[]{1,0,1,15,13,15};
-            default->new double[]{0,0,0,16,16,16};};}
+            for(Direction dir:Direction.Type.HORIZONTAL){
+                VoxelShape shape=VoxelShapes.empty();
+                for(double[] b:SHAPES.get(n)){
+                    double x=b[0],z=b[2],X=b[3],Z=b[5];int turns=(dir.getHorizontal()+2)%4;
+                    for(int i=0;i<turns;i++){double next=16-Z,nextMax=16-z;z=x;Z=X;x=next;X=nextMax;}
+                    shape=VoxelShapes.union(shape,Block.createCuboidShape(x,b[1],z,X,b[4],Z));
+                }
+                shapes[dir.getHorizontal()]=shape.simplify();
+            }
+        }
         protected void appendProperties(StateManager.Builder<Block,BlockState> b){b.add(Properties.HORIZONTAL_FACING);}
         public BlockState getPlacementState(ItemPlacementContext ctx){return getDefaultState().with(Properties.HORIZONTAL_FACING,ctx.getHorizontalPlayerFacing().getOpposite());}
         public VoxelShape getOutlineShape(BlockState state,BlockView world,BlockPos pos,ShapeContext ctx){return shapes[state.get(Properties.HORIZONTAL_FACING).getHorizontal()];}

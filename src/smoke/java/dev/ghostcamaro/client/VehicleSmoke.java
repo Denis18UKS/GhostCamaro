@@ -49,6 +49,21 @@ public class VehicleSmoke implements ClientModInitializer {
         }
         if(stage==3&&++ticks>70){
             Path dir=Path.of("evidence");Files.createDirectories(dir);var car=CamaroClient.car();check(car!=null&&car.flag(1),"client sees running engine");check(MirrorSystem.ready,"three world render passes completed");
+            CarRenderer renderer=(CarRenderer)c.getEntityRenderDispatcher().getRenderer(car);
+            int tested=0;
+            for(var entry:renderer.scene.clips.entrySet()){
+                float end=0;for(var track:entry.getValue())end=Math.max(end,track.times[track.times.length-1]);
+                for(int frame=0;frame<=16;frame++){
+                    renderer.play(entry.getKey(),end*frame/16,false);
+                    for(var track:entry.getValue()){
+                        int i=track.node;if(!renderer.rotation[i].isFinite())throw new AssertionError(entry.getKey());
+                        for(float value:renderer.tr[i])if(!Float.isFinite(value))throw new AssertionError(entry.getKey());
+                        for(float value:renderer.scale[i])if(!Float.isFinite(value))throw new AssertionError(entry.getKey());
+                    }
+                }
+                tested++;
+            }
+            check(tested==62,"sampled all 62 animation clips inside the running client");
             Set<Integer> fingerprints=new HashSet<>();
             for(int i=0;i<3;i++)try(var image=ScreenshotRecorder.takeScreenshot(MirrorSystem.fb[i])){
                 image.writeTo(dir.resolve("mirror-"+i+".png"));Set<Integer> colors=new HashSet<>();int hash=1;
