@@ -46,9 +46,36 @@ public class GhostCamaroEntity extends Entity {
     public NbtList marks(){return dataTracker.get(MARKS).getList("List",10);}
     public boolean damaged(String zone){return dataTracker.get(MARKS).getBoolean(zone);}
     void storeMarks(NbtList list){var state=new NbtCompound();state.put("List",list);for(int i=0;i<list.size();i++)state.putBoolean(list.getCompound(i).getString("Zone"),true);dataTracker.set(MARKS,state);}
-    private void recordImpact(String zone,Vec3d q){
+    public static boolean isPane(String zone){return zone.equals("Windshield")||zone.equals("Window_L")||zone.equals("Window_R");}
+    public int glassGrade(){return hasModule(1)?2:hasModule(0)?1:0;}
+    public int glassStage(String zone){
+        var panel=damageState().getCompound("Panes").getCompound(zone);
+        return panel.contains("Stage")?panel.getInt("Stage"):damaged(zone)?(zone.startsWith("Window")?5:2):0;
+    }
+    public boolean laminated(String zone){return damageState().getCompound("Panes").getCompound(zone).getBoolean("Held");}
+    public void repairPane(String zone){
+        var state=damageState().copy();var list=state.getList("List",10);
+        list.removeIf(e->zone.equals(((NbtCompound)e).getString("Zone")));
+        state.getCompound("Panes").remove(zone);state.remove(zone);dataTracker.set(MARKS,state);
+    }
+    private void recordImpact(String zone,Vec3d q,float force){
         NbtCompound state=damageState().copy(),mark=new NbtCompound();
         mark.putString("Zone",zone);mark.putFloat("X",(float)q.x);mark.putFloat("Y",(float)q.y);mark.putFloat("Z",(float)q.z);
+        if(isPane(zone)){
+            var panes=state.getCompound("Panes");var panel=panes.getCompound(zone);
+            int grade=glassGrade();
+            float threshold=Math.max(1,switch(grade){
+                case 2->GhostCamaro.CONFIG.laminatedGlassStep;
+                case 1->GhostCamaro.CONFIG.reinforcedGlassStep;
+                default->GhostCamaro.CONFIG.standardGlassStep;});
+            float progress=Math.min(5,(panel.contains("Progress")?panel.getFloat("Progress"):glassStage(zone))+Math.min(1.6f,Math.max(.01f,force)/threshold));
+            int stage=Math.min(5,(int)Math.ceil(progress));
+            if(glassStage(zone)<5&&stage==5){
+                panel.putLong("BreakTick",getWorld().getTime());panel.putBoolean("Held",grade==2);
+            }
+            panel.putInt("Stage",stage);panel.putFloat("Progress",progress);
+            panel.put("Contact",mark.copy());panes.put(zone,panel);state.put("Panes",panes);
+        }
         var list=state.getList("List",10);
         if(list.size()>=24)list.remove(0);
         list.add(mark);state.put("List",list);state.putBoolean(zone,true);dataTracker.set(MARKS,state);
@@ -57,8 +84,8 @@ public class GhostCamaroEntity extends Entity {
         boolean front=speed>0;double z=front?2.58:-2.38;
         Vec3d contact=getPos().add(offset(0,.55,z));
         impact(contact,(float)(Math.abs(speed)*GhostCamaro.CONFIG.collisionDamage));
-        if(front && Math.abs(speed)>.32)recordImpact("Hood",new Vec3d(0,.78,1.72));
-        if(front && Math.abs(speed)>.56&&!hasModule(1))recordImpact("Windshield",new Vec3d(.15,1,.35));
+        if(front && Math.abs(speed)>.32)recordImpact("Hood",new Vec3d(0,.78,1.72),12);
+        if(front && Math.abs(speed)>.56&&!hasModule(1))recordImpact("Windshield",new Vec3d(.15,1,.35),12);
         if(getWorld() instanceof net.minecraft.server.world.ServerWorld sw)
             sw.spawnParticles(net.minecraft.particle.ParticleTypes.ELECTRIC_SPARK,contact.x,contact.y,contact.z,8,.2,.1,.2,.04);
     }
@@ -75,8 +102,8 @@ public class GhostCamaroEntity extends Entity {
         else if(hasModule(0)&&lateral>.6)zone="Armor";
         boolean protectedZone=hasModule(1)&&(zone.equals("Windshield")||zone.startsWith("Window")||zone.equals("Hood"))
             ||hasModule(2)&&(zone.startsWith("Tire")||zone.equals("Bumper"))||zone.equals("Armor");
-        if(protectedZone && damage<6 && (zone.startsWith("Tire")||zone.startsWith("Window")))zone="Body";
-        recordImpact(zone,q);service(zone.equals("Armor")?4:5);
+        if(protectedZone && damage<6 && zone.startsWith("Tire"))zone="Body";
+        recordImpact(zone,q,damage);service(zone.equals("Armor")?4:5);
         hurtCar(damage/(1+.17f*level())*(protectedZone?.65f:1));
 
     }
@@ -146,14 +173,20 @@ public class GhostCamaroEntity extends Entity {
             p.openHandledScreen(new SimpleNamedScreenHandlerFactory((id,inv,who)->new WorkshopMenu(id,inv,this),Text.translatable("ghostcamaro.workshop")));return ActionResult.CONSUME;
         }
         if(stack.isOf(GhostCamaro.KIT)){
-            if(Math.abs(speed())>.012||(health()>=100&&marks().isEmpty()&&damageState().getKeys().stream().noneMatch(k->!k.equals("List"))))return ActionResult.FAIL;
+            String pane=local.y>.82&&local.y<1.30?(Math.abs(local.x)<.7&&local.z>0&&local.z<.72?"Windshield":
+                    Math.abs(local.x)>.6&&local.z>-.95&&local.z<.55?(local.x>=0?"Window_L":"Window_R"):null):null;
+            if(pane!=null){
+                if(Math.abs(speed())>.012||glassStage(pane)==0)return ActionResult.FAIL;
+                repairPane(pane);service(3);if(!p.isCreative())stack.decrement(1);return ActionResult.CONSUME;
+            }
+            if(Math.abs(speed())>.012||(health()>=100&&marks().isEmpty()&&damageState().getKeys().stream().noneMatch(k->!k.equals("List")&&!k.equals("Panes"))))return ActionResult.FAIL;
             float hp=Math.min(100,health()+25);dataTracker.set(HP,hp);if(hp>10)dataTracker.set(FAILURE,0);
             var state=damageState().copy();var l=state.getList("List",10);
             for(int i=0;i<4&&!l.isEmpty();i++)l.remove(l.size()-1);
             // Retain faults whose contact decal aged out. Each kit can repair one such zone.
             var represented=new java.util.HashSet<String>();
             for(int i=0;i<l.size();i++)represented.add(l.getCompound(i).getString("Zone"));
-            state.getKeys().stream().filter(k->!k.equals("List")&&!represented.contains(k)).sorted().findFirst().ifPresent(state::remove);
+            state.getKeys().stream().filter(k->!k.equals("List")&&!k.equals("Panes")&&!isPane(k)&&!represented.contains(k)).sorted().findFirst().ifPresent(state::remove);
             state.put("List",l);dataTracker.set(MARKS,state);service(3);
             if(!p.isCreative())stack.decrement(1);return ActionResult.CONSUME;
         }

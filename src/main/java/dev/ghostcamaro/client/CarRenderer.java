@@ -16,6 +16,9 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
     static final class Primitive {int texture,count;boolean alpha,glow;float[] data;}
     static final class Track {int node;String kind;float[] times;float[][] values;boolean step;}
     static final class Scene {int[] roots;Node[] nodes;Primitive[][] meshes;Map<String,Track[]> clips;}
+    private final VertexConsumerProvider.Immediate vehicleBuffers=VertexConsumerProvider.immediate(new BufferBuilder(262144));
+    private record Transparent(Primitive part,org.joml.Matrix4f position,org.joml.Matrix3f normal,float distance){}
+    private final List<Transparent> transparent=new ArrayList<>();
     final DamageRenderer marks;
     final Scene scene;final Map<String,Integer> nodeIndex=new HashMap<>();final float[][] tr,scale;final Quaternionf[] rotation;
     CarRenderer(EntityRendererFactory.Context ctx){super(ctx);shadowRadius=1.6f;
@@ -63,14 +66,26 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         for(String w:new String[]{"FL","FR","RL","RR"})if(c.damaged("Tire_"+w))play("Tire_Damage_"+w,.48f,false);
         for(String side:new String[]{"L","R"}){
             if(c.damaged("Mirror_"+side))play("Mirror_Damage_"+side,.3f,false);
-            if(c.damaged("Window_"+side))play("Window_Shatter_"+side,.2f,false);
+
             if(c.damaged("Lamp_"+side))play("Headlight_Break_"+side,.2f,false);
         }
-        if(c.damaged("Windshield"))play("Windshield_Crack",.12f,false);
+
         if(c.damaged("Hood")&&c.openings[2]==0&&c.failure()==0)play("Hood_Damage",.45f,false);
         if(c.damaged("Bumper"))play("Bumper_Damage",.45f,false);
         if(c.serviceTime()<.55f){String clip=switch(c.serviceType()){case 1->"Armor_Install";case 2->"Armor_Remove";case 3->"Vehicle_Repair";case 4->"Bullet_Impact_Armor";case 5->"Bullet_Impact_Body";default->null;};if(clip!=null)play(clip,c.serviceTime(),false);}
-        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);BootRenderer.draw(c,dt,m,v,light);hands(c,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
+        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));transparent.clear();
+        for(int root:scene.roots)draw(c,root,m,vehicleBuffers,light);
+        BootRenderer.draw(c,dt,m,vehicleBuffers,light);hands(c,m,vehicleBuffers,light);vehicleBuffers.draw();
+        transparent.sort(Comparator.comparingDouble(Transparent::distance).reversed());
+        for(var item:transparent){
+            var p=item.part();var out=vehicleBuffers.getBuffer(RenderLayer.getEntityTranslucent(tex[p.texture]));
+            for(int k=0;k<p.count;k+=3)for(int j=0;j<4;j++){
+                int a=(k+Math.min(j,2))*8;float[] d=p.data;
+                out.vertex(item.position(),d[a],d[a+1],d[a+2]).color(255,255,255,255).texture(d[a+3],d[a+4]).overlay(OverlayTexture.DEFAULT_UV)
+                   .light(p.glow?LightmapTextureManager.MAX_LIGHT_COORDINATE:light).normal(item.normal(),d[a+5],d[a+6],d[a+7]).next();
+            }
+        }
+        vehicleBuffers.draw();m.pop();super.render(c,yaw,dt,m,v,light);
     }
     private void hands(GhostCamaroEntity car,MatrixStack m,VertexConsumerProvider buffers,int light){
         var client=CamaroClient.mc();var player=client.player;
@@ -89,7 +104,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         }
     }
     void draw(GhostCamaroEntity car,int i,MatrixStack m,VertexConsumerProvider vp,int light){
-        Node n=scene.nodes[i];if(n.name.equals("Cargo")||n.name.equals("Windshield_Fracture")&&!car.damaged("Windshield"))return;
+        Node n=scene.nodes[i];if(n.name.equals("Cargo")||n.name.equals("Windshield_Fracture"))return;
         if(n.name.startsWith("Side_Plate")&&!car.hasModule(0)&&!(car.serviceType()==2&&car.serviceTime()<.55f))return;
         if((n.name.equals("Engine_Guard")||n.name.equals("Rear_window_shield"))&&!car.hasModule(1))return;
         if((n.name.equals("Rear_Guard")||n.name.equals("Armored_Plough")||n.name.equals("Bullbar"))&&!car.hasModule(2))return;
@@ -99,6 +114,13 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         if(mirror>=0){float x=mirror==2?-.103f:-.431f,y=mirror==2?1.128f:.908f,z=mirror==0?.953f:mirror==1?-.953f:0;
             m.translate(x,y,z);m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(car.mirror(mirror,0)));m.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(car.mirror(mirror,1)));m.translate(-x,-y,-z);}
         if(n.mesh>=0)for(var p:scene.meshes[n.mesh]){
+            if(p.alpha){
+                String pane=n.name.equals("Curved_windscreen")?"Windshield":n.name.equals("Door_glass")?"Window_L":n.name.equals("Door_glass.001")?"Window_R":null;
+                if(pane!=null&&car.glassStage(pane)==5&&!car.laminated(pane))continue;
+                var pos=new org.joml.Matrix4f(m.peek().getPositionMatrix());
+                var center=pos.transformPosition(p.data[0],p.data[1],p.data[2],new org.joml.Vector3f());
+                transparent.add(new Transparent(p,pos,new org.joml.Matrix3f(m.peek().getNormalMatrix()),center.lengthSquared()));continue;
+            }
             boolean reflect=mirror>=0&&!(mirror<2&&car.damaged("Mirror_"+(mirror==0?"L":"R")))&&MirrorSystem.ready&&!MirrorSystem.rendering&&car==CamaroClient.car()&&CamaroClient.mc().options.getPerspective().isFirstPerson();
             var normal=vp.getBuffer(p.alpha?RenderLayer.getEntityTranslucent(tex[p.texture]):RenderLayer.getEntityCutoutNoCull(tex[p.texture]));
             var entry=m.peek();float[] d=p.data;

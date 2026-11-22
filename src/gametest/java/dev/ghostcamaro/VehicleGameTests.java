@@ -109,4 +109,18 @@ public class VehicleGameTests {
         t.assertTrue(c.health()>hp&&c.marks().size()==20,"incremental repair");
         t.assertTrue(RouteWorkshop.catalog.size()==40,"40 architectural items");t.complete();
     }
+    @GameTest(templateName="fabric-gametest-api-v1:empty")
+    public void glazing(TestContext t){
+        var car=new GhostCamaroEntity(GhostCamaro.CAR,t.getWorld());car.module(1,true);
+        var left=car.getPos().add(car.offset(.77,.98,-.20));
+        for(int i=0;i<4;i++)car.impact(left,5);
+        t.assertTrue(car.glassStage("Window_L")==1&&car.glassStage("Window_R")==0,"laminate retains first cracks");
+        car.impact(left,5);t.assertTrue(car.glassStage("Window_L")==2,"second stage");
+        for(int i=0;i<15;i++)car.impact(left,5);
+        t.assertTrue(car.glassStage("Window_L")==5&&car.laminated("Window_L"),"laminated damaged panel held in place");
+        car.impact(car.getPos().add(car.offset(0,1,.35)),5);
+        var copy=new GhostCamaroEntity(GhostCamaro.CAR,t.getWorld());copy.readNbt(car.writeNbt(new NbtCompound()));
+        t.assertTrue(copy.glassStage("Window_L")==5,"panel persisted");copy.repairPane("Window_L");
+        t.assertTrue(copy.glassStage("Window_L")==0&&copy.glassStage("Windshield")==1,"only selected panel repaired");t.complete();
+    }
 }
