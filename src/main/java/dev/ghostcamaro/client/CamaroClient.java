@@ -23,6 +23,7 @@ public class CamaroClient implements ClientModInitializer {
     public static MinecraftClient mc(){return MinecraftClient.getInstance();}
     static GhostCamaroEntity car(){return mc().player!=null&&mc().player.getVehicle() instanceof GhostCamaroEntity c?c:null;}
     public void onInitializeClient(){
+        EntityRendererRegistry.register(GhostCamaro.ROUND,net.minecraft.client.render.entity.FlyingItemEntityRenderer::new);
         EntityRendererRegistry.register(GhostCamaro.CAR,CarRenderer::new);
         for(int i=0;i<keys.length;i++)keys[i]=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.ghostcamaro."+actions[i],InputUtil.Type.KEYSYM,defaults[i],"category.ghostcamaro"));
         ClientTickEvents.END_CLIENT_TICK.register(c->{

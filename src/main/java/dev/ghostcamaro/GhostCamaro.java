@@ -25,6 +25,9 @@ public class GhostCamaro implements ModInitializer {
             if(!CarHull.clear(e)||!c.getWorld().spawnEntity(e))return ActionResult.FAIL;
             if(c.getPlayer()!=null&&!c.getPlayer().getAbilities().creativeMode)c.getStack().decrement(1);return ActionResult.CONSUME;
         }});
+    public static final Item ROUND_MODEL=item("range_round",new Item(new Item.Settings()));
+    public static final EntityType<RangeRound> ROUND=Registry.register(Registries.ENTITY_TYPE,id("range_round"),
+        EntityType.Builder.<RangeRound>create(RangeRound::new,SpawnGroup.MISC).setDimensions(.06f,.06f).maxTrackingRange(6).trackingTickInterval(1).disableSaving().build("range_round"));
     public static final Item CAN=item("fuel_can",new Item(new Item.Settings().maxCount(1))), KIT=item("repair_kit",new Item(new Item.Settings().maxCount(16)));
     public static final Item PLATE=item("armor_panel",new Item(new Item.Settings())),WRENCH=item("workshop_key",new Item(new Item.Settings().maxCount(1)));
     public static final Item PISTOL_AMMO=item("pistol_rounds",new Item(new Item.Settings())),RIFLE_AMMO=item("rifle_rounds",new Item(new Item.Settings()));

@@ -54,3 +54,4 @@ print('Animation channels checked:',len(model['clips']))
 subprocess.run([sys.executable,str(root/'tools/v7/streets.py')],check=True)
 
 subprocess.run([sys.executable,str(root/'tools/next/glass.py')],check=True)
+subprocess.run([sys.executable,str(root/'tools/next/props.py')],check=True)

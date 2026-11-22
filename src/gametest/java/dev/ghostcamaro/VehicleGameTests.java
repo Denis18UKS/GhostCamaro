@@ -83,6 +83,9 @@ public class VehicleGameTests {
         t.assertTrue(c.fuel()==10.5f&&store.liters==119.75f,"finite pump transfer");
         p.refreshPositionAndAngles(c.getX(),c.getY()-.95,c.getZ()-4,0,0);
         int count=c.marks().size();((RangeItem)GhostCamaro.PISTOL).fire(w,p);
+        t.assertTrue(c.marks().size()==count,"projectile in flight before impact");
+        var rounds=w.getEntitiesByClass(RangeRound.class,p.getBoundingBox().expand(3),e->true);
+        t.assertTrue(rounds.size()==1,"spawned one tracked round");rounds.get(0).tick();
         t.assertTrue(c.marks().size()==count+1,"arcade projectile hits rear panel");
         p.refreshPositionAndAngles(c.getX(),c.getY(),c.getZ()-2.9,0,0);
         var ui=new WorkshopMenu(3,p.getInventory(),c);

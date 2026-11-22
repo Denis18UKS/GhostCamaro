@@ -20,15 +20,8 @@ public class RangeItem extends Item {
         if(p.getItemCooldownManager().isCoolingDown(this))return;
         if(!p.isCreative()){int i=p.getInventory().getSlotWithStack(new ItemStack(ammo));if(i<0)return;p.getInventory().removeStack(i,1);}
         p.getItemCooldownManager().set(this,repeat?4:8);
-        Vec3d start=p.getEyePos(),dir=p.getRotationVec(1),far=start.add(dir.multiply(36));
-        var block=w.raycast(new RaycastContext(start,far,RaycastContext.ShapeType.COLLIDER,RaycastContext.FluidHandling.NONE,p));Vec3d end=block.getPos(),best=end;GhostCamaroEntity chosen=null;
-        for(var c:w.getEntitiesByClass(GhostCamaroEntity.class,new Box(start,end).expand(2),e->e!=p.getVehicle())){
-            float rot=c.getYaw()*MathHelper.RADIANS_PER_DEGREE;
-            var at=CarHull.select(start.subtract(c.getPos()).rotateY(rot),end.subtract(c.getPos()).rotateY(rot));
-            if(at.isPresent()){Vec3d pos=c.getPos().add(at.get().rotateY(-rot));if(pos.squaredDistanceTo(start)<best.squaredDistanceTo(start)){chosen=c;best=pos;}}
-        }
-        if(chosen!=null)chosen.impact(best,repeat?GhostCamaro.CONFIG.rifleDamage:GhostCamaro.CONFIG.pistolDamage);
-        if(chosen!=null||block.getType()!=HitResult.Type.MISS)w.spawnParticles(ParticleTypes.CRIT,best.x,best.y,best.z,5,.03,.03,.03,.06);
+        var round=new RangeRound(GhostCamaro.ROUND,w);round.launch(p,repeat?GhostCamaro.CONFIG.rifleDamage:GhostCamaro.CONFIG.pistolDamage);w.spawnEntity(round);
+        Vec3d start=p.getEyePos(),dir=p.getRotationVec(1);
         Vec3d muzzle=start.add(dir.multiply(.65));w.spawnParticles(ParticleTypes.FLAME,muzzle.x,muzzle.y-.10,muzzle.z,2,.01,.01,.01,.015);
         w.playSound(null,p.getBlockPos(),SoundEvents.ENTITY_FIREWORK_ROCKET_BLAST,SoundCategory.PLAYERS,.72f,repeat?1.45f:1.1f);
     }
