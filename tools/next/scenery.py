@@ -30,17 +30,26 @@ for model in sorted((assets/'models/block').glob('*.json'))+sorted((assets/'mode
    for index,(x,y) in zip(poly.loop_indices,uvals):uv.data[index].uv=(x/16,1-y/16)
    efaces[direction]={'uv':[u,t,U,T],'texture':0}
   id=uid(n+str(k));bb['outliner'].append(id);bb['elements'].append({'type':'cube','uuid':id,'name':ob.name,'from':e['from'],'to':e['to'],'origin':[8,0,8],'faces':efaces,'box_uv':False})
+ animated=n in ('range_pistol','range_rifle')
+ if animated:
+  import sys
+  sys.path.insert(0,str(root/'tools/next'))
+  from prop_actions import animate
+  animate(n,bb)
  for folder in [f'Blockbench/{cat}',f'Blender/{cat}',f'Exports/FBX/{cat}',f'Exports/GLB/{cat}',f'Textures/{cat}']:(out/folder).mkdir(parents=True,exist_ok=True)
  (out/f'Textures/{cat}'/(n+'.png')).write_bytes(imgpath.read_bytes())
  (out/f'Blockbench/{cat}'/(n+'.bbmodel')).write_text(json.dumps(bb))
  bpy.context.scene.unit_settings.system='METRIC';bpy.context.preferences.filepaths.save_version=0
  bpy.ops.wm.save_as_mainfile(filepath=str(out/f'Blender/{cat}'/(n+'.blend')))
- bpy.ops.export_scene.fbx(filepath=str(out/f'Exports/FBX/{cat}'/(n+'.fbx')),path_mode='COPY',embed_textures=True,bake_anim=False)
- bpy.ops.export_scene.gltf(filepath=str(out/f'Exports/GLB/{cat}'/(n+'.glb')),export_animations=False)
+ bpy.ops.export_scene.fbx(filepath=str(out/f'Exports/FBX/{cat}'/(n+'.fbx')),path_mode='COPY',embed_textures=True,bake_anim=animated,bake_anim_use_nla_strips=False,bake_anim_use_all_actions=True,add_leaf_bones=False)
+ bpy.ops.export_scene.gltf(filepath=str(out/f'Exports/GLB/{cat}'/(n+'.glb')),export_animations=animated)
  for ext in ['fbx','glb']:
   bpy.ops.wm.read_factory_settings(use_empty=True)
   file=out/'Exports'/ext.upper()/cat/(n+'.'+ext)
   if ext=='fbx':bpy.ops.import_scene.fbx(filepath=str(file))
   else:bpy.ops.import_scene.gltf(filepath=str(file))
+  if animated:
+   names={a.name.split('|')[-1] for a in bpy.data.actions}
+   assert all(any(title in n for n in names) for title in ('Idle','Draw','Holster','Aim','Fire','Recoil','Reload','Empty','Inspect')),(ext,names)
   assert len([o for o in bpy.context.scene.objects if o.type=='MESH'])==len(src['elements'])
  print('ROUNDTRIP',n,len(src['elements']),flush=True)
