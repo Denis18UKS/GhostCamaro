@@ -42,6 +42,7 @@ public class GhostCamaroEntity extends Entity {
     public int level(){return Integer.bitCount(dataTracker.get(MODULES));}
     public void module(int i,boolean on){if(i<0||i>2)return;int mask=dataTracker.get(MODULES);dataTracker.set(MODULES,on?mask|1<<i:mask&~(1<<i));service(on?1:2);}
     public String buildStats(){return String.format(Locale.ROOT,"Lv %d | +%d kg | %.0f%% accel | +%d%% fuel",level(),level()*85,100/(1+.09*level()),level()*7);}
+    public NbtCompound damageState(){return dataTracker.get(MARKS);}
     public NbtList marks(){return dataTracker.get(MARKS).getList("List",10);}
     public boolean damaged(String zone){return dataTracker.get(MARKS).getBoolean(zone);}
     void storeMarks(NbtList list){var state=new NbtCompound();state.put("List",list);for(int i=0;i<list.size();i++)state.putBoolean(list.getCompound(i).getString("Zone"),true);dataTracker.set(MARKS,state);}
@@ -174,7 +175,7 @@ public class GhostCamaroEntity extends Entity {
         boolean braking=back&&v>.004||park;set(STOP,braking);set(PARK,park);set(THROTTLE,gas&&flag(MOTOR));
         double grip=MathHelper.clamp(.6/getWorld().getBlockState(getBlockPos().down()).getBlock().getSlipperiness(),.45,1.25);
         if(park||back&&v>0)v=MathHelper.stepTowards((float)v,0,(float)((park?c.emergencyBrake:c.normalBrake)*grip));
-        else if(flag(MOTOR)&&(gas||back))v+=c.acceleration/(1+.09*level())*(gas?1:-.52)*(health()<45?.37:1)*grip;
+        else if(flag(MOTOR)&&(gas||back))v+=c.acceleration/(1+.09*level())*(gas?1:-.52)*(health()<45?.37:health()<85?.88:1)*grip;
         else v=MathHelper.stepTowards((float)v,0,.0018f);
         boolean tire=damaged("Tire_FL")||damaged("Tire_FR")||damaged("Tire_RL")||damaged("Tire_RR");v=MathHelper.clamp(v,-.27,c.maxSpeed*(tire?.58:1));if(tire)turn*=.76f;
         if(flag(TRUNK)||flag(HOOD)||flag(CAP))v=0;

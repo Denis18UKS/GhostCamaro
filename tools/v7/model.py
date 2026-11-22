@@ -1,9 +1,18 @@
 """Produce editable BB and GLB masters by extending, never rebuilding, the V5 hierarchy."""
 from pathlib import Path
-import struct,json,uuid,math,base64
+import struct,json,uuid,math,base64,zlib
 root=Path(__file__).resolve().parents[2];dest=root/'build/v7';dest.mkdir(parents=True,exist_ok=True)
 b=json.loads((root/'masters/Ghost_Camaro_V5.bbmodel').read_bytes())
 raw=(root/'masters/Ghost_Camaro_V5.glb').read_bytes();n=struct.unpack_from('<I',raw,12)[0];g=json.loads(raw[20:20+n]);buf=bytearray(raw[28+n:])
+# Retain the tuned V6.1 glazing in all three modeling formats.
+def pane(rgb,alpha):
+ def chunk(tag,data):return struct.pack('>I',len(data))+tag+data+struct.pack('>I',zlib.crc32(tag+data))
+ rows=b''.join(b'\0'+bytes((*rgb,alpha+y//3))*16 for y in range(16))
+ return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',16,16,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(rows))+chunk(b'IEND',b'')
+for index,rgb,a in [(1,(168,198,206),49),(2,(92,125,136),88)]:
+ png=pane(rgb,a);buf.extend(b'\0'*(-len(buf)%4));offset=len(buf);buf.extend(png)
+ vi=len(g['bufferViews']);g['bufferViews'].append(dict(buffer=0,byteOffset=offset,byteLength=len(png)))
+ g['images'][index]['bufferView']=vi;b['textures'][index]['source']='data:image/png;base64,'+base64.b64encode(png).decode()
 nodes=g['nodes'];ids={x['name']:i for i,x in enumerate(nodes)}; bg={}
 def walk(x):
  if isinstance(x,dict):

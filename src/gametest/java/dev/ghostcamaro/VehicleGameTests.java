@@ -81,6 +81,10 @@ public class VehicleGameTests {
         var pp=base.add(3,0,0);w.setBlockState(pp,RouteWorkshop.pump.getDefaultState());
         var store=(RouteWorkshop.Reserve)w.getBlockEntity(pp);c.startPump(p,pp);c.fuelTick();
         t.assertTrue(c.fuel()==10.5f&&store.liters==119.75f,"finite pump transfer");
+        p.refreshPositionAndAngles(c.getX(),c.getY()-.95,c.getZ()-4,0,0);
+        int count=c.marks().size();((RangeItem)GhostCamaro.PISTOL).fire(w,p);
+        t.assertTrue(c.marks().size()==count+1,"arcade projectile hits rear panel");
+        p.refreshPositionAndAngles(c.getX(),c.getY(),c.getZ()-2.9,0,0);
         var ui=new WorkshopMenu(3,p.getInventory(),c);
         ui.onSlotClick(0,0,net.minecraft.screen.slot.SlotActionType.PICKUP,p);t.assertTrue(c.hasModule(0),"install door panels");
         ui.onSlotClick(0,0,net.minecraft.screen.slot.SlotActionType.PICKUP,p);t.assertTrue(!c.hasModule(0),"remove panels");

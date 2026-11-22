@@ -16,12 +16,14 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
     static final class Primitive {int texture,count;boolean alpha,glow;float[] data;}
     static final class Track {int node;String kind;float[] times;float[][] values;boolean step;}
     static final class Scene {int[] roots;Node[] nodes;Primitive[][] meshes;Map<String,Track[]> clips;}
+    final DamageRenderer marks;
     final Scene scene;final Map<String,Integer> nodeIndex=new HashMap<>();final float[][] tr,scale;final Quaternionf[] rotation;
     CarRenderer(EntityRendererFactory.Context ctx){super(ctx);shadowRadius=1.6f;
         var rm=CamaroClient.mc().getResourceManager();
         try(var reader=rm.getResourceOrThrow(GhostCamaro.id("vehicle/scene.json")).getReader();var in=new DataInputStream(new BufferedInputStream(rm.getResourceOrThrow(GhostCamaro.id("vehicle/geometry.bin")).getInputStream()))){
             scene=new Gson().fromJson(reader,Scene.class);for(var batch:scene.meshes)for(var p:batch){p.data=new float[p.count*8];for(int k=0;k<p.data.length;k++)p.data[k]=in.readFloat();}
         }catch(IOException ex){throw new UncheckedIOException(ex);}
+        marks=new DamageRenderer(scene);
         tr=new float[scene.nodes.length][3];scale=new float[scene.nodes.length][3];rotation=new Quaternionf[tr.length];
         for(int i=0;i<tr.length;i++){nodeIndex.put(scene.nodes[i].name,i);rotation[i]=new Quaternionf();}
     }
@@ -39,6 +41,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
     void angle(String name,float x,float y,float z,float angle){rotation[nodeIndex.get(name)].rotationAxis(angle,x,y,z);}
     public void render(GhostCamaroEntity c,float yaw,float dt,MatrixStack m,VertexConsumerProvider v,int light){
         if(MirrorSystem.rendering&&c==CamaroClient.car())return;
+        marks.prepare(c);
         for(int i=0;i<tr.length;i++){Node n=scene.nodes[i];System.arraycopy(n.translation,0,tr[i],0,3);System.arraycopy(n.scale,0,scale[i],0,3);rotation[i].set(n.rotation[0],n.rotation[1],n.rotation[2],n.rotation[3]);}
         float time=(c.age+dt)/20f;
         String[] op={"Door_L_Open","Door_R_Open","Hood_Open","Trunk_Open","Window_L_Down","Window_R_Down"};
@@ -67,7 +70,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
         if(c.damaged("Hood")&&c.openings[2]==0&&c.failure()==0)play("Hood_Damage",.45f,false);
         if(c.damaged("Bumper"))play("Bumper_Damage",.45f,false);
         if(c.serviceTime()<.55f){String clip=switch(c.serviceType()){case 1->"Armor_Install";case 2->"Armor_Remove";case 3->"Vehicle_Repair";case 4->"Bullet_Impact_Armor";case 5->"Bullet_Impact_Body";default->null;};if(clip!=null)play(clip,c.serviceTime(),false);}
-        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);DamageRenderer.draw(c,m,v,light);BootRenderer.draw(c,dt,m,v,light);hands(c,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
+        m.push();m.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90-yaw));for(int root:scene.roots)draw(c,root,m,v,light);BootRenderer.draw(c,dt,m,v,light);hands(c,m,v,light);m.pop();super.render(c,yaw,dt,m,v,light);
     }
     private void hands(GhostCamaroEntity car,MatrixStack m,VertexConsumerProvider buffers,int light){
         var client=CamaroClient.mc();var player=client.player;
@@ -87,7 +90,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
     }
     void draw(GhostCamaroEntity car,int i,MatrixStack m,VertexConsumerProvider vp,int light){
         Node n=scene.nodes[i];if(n.name.equals("Cargo")||n.name.equals("Windshield_Fracture")&&!car.damaged("Windshield"))return;
-        if((n.name.startsWith("Side_Plate")||n.name.equals("Armor"))&&!car.hasModule(0))return;
+        if(n.name.startsWith("Side_Plate")&&!car.hasModule(0)&&!(car.serviceType()==2&&car.serviceTime()<.55f))return;
         if((n.name.equals("Engine_Guard")||n.name.equals("Rear_window_shield"))&&!car.hasModule(1))return;
         if((n.name.equals("Rear_Guard")||n.name.equals("Armored_Plough")||n.name.equals("Bullbar"))&&!car.hasModule(2))return;
         if((n.name.startsWith("Head_")||n.name.startsWith("BeamPreview_"))&&car.damaged("Lamp_"+n.name.charAt(n.name.length()-1)))return; m.push();m.translate(tr[i][0],tr[i][1],tr[i][2]);m.multiply(rotation[i]);
@@ -109,6 +112,7 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
                 if(face)normal=vp.getBuffer(RenderLayer.getEntityCutoutNoCull(tex[p.texture]));
             }
         }
+        marks.drawNode(car,i,m,vp,light);
         for(int child:n.children)draw(car,child,m,vp,light);m.pop();
     }
 }
