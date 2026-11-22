@@ -89,6 +89,12 @@ jobs:
         with:
           name: dedicated-network
           path: build/next/Checks/Network
+      - name: Open prop projects in Blockbench
+        timeout-minutes: 12
+        run: |
+          npm install --prefix "$RUNNER_TEMP/bb-test" playwright@1.55.0
+          "$RUNNER_TEMP/bb-test/node_modules/.bin/playwright" install chromium
+          NODE_PATH="$RUNNER_TEMP/bb-test/node_modules" node tools/next/editor-check.cjs
       - run: python3 tools/next/package.py
       - uses: actions/upload-artifact@v4
         with:
