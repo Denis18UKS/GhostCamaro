@@ -81,6 +81,7 @@ jobs:
           python3 tools/next/cargo.py
           blender -b -t 2 --python-exit-code 1 --python tools/v7/blender_export.py
           blender -b -t 2 --python-exit-code 1 --python tools/next/scenery.py | tee /tmp/export-checks.log
+          blender -b -t 2 --python-exit-code 1 --python tools/next/panel_studies.py
           test "$(grep -c '^ROUNDTRIP ' /tmp/export-checks.log)" = 54
       - uses: actions/download-artifact@v4
         with:

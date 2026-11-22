@@ -36,7 +36,7 @@ rows=['| Объект | Blockbench | Blender | FBX | GLB | Minecraft | Клип�
 for p in sorted((out/'Blockbench').rglob('*.bbmodel')):
  rel=p.relative_to(out/'Blockbench');n=rel.stem;cat=rel.parts[0]
  fmt=lambda d,ext:str(Path(d)/rel.with_suffix(ext))
- game=('vehicle/scene.json' if cat=='Vehicles' else 'BootRenderer.java + textures/entity/'+n+'.png' if cat=='Cargo' else ('models/block/' if cat=='Building' else 'models/item/')+n+'.json')
+ game=('DamageRenderer.java (procedural)' if cat=='Damage' else 'vehicle/scene.json' if cat=='Vehicles' else 'BootRenderer.java + textures/entity/'+n+'.png' if cat=='Cargo' else ('models/block/' if cat=='Building' else 'models/item/')+n+'.json')
  rows.append('| '+' | '.join([n,str(p.relative_to(out)),fmt('Blender','.blend'),fmt('Exports/FBX','.fbx'),fmt('Exports/GLB','.glb'),game,'62' if cat=='Vehicles' else '9' if cat=='Weapons' else '0'])+' |')
 (docs/'ASSET_MANIFEST.md').write_text('\n'.join(rows))
 (docs/'NEXT.md').write_text("""# Ghost Camaro NEXT.1 · промежуточная сборка
@@ -61,3 +61,12 @@ for p in sorted((out/'Blockbench').rglob('*.bbmodel')):
 
 Это промежуточный выпуск. Нет результатов испытаний UE5, Unity и шейдерпаков. Все сочетания остекления, посадки пассажира и LOD вручную не проверены.
 """)
+
+(docs/'DAMAGE_SYSTEM.md').write_text("""# Повреждения NEXT.1
+На стоянке наведите ремкомплект на конкретное стекло и нажмите ПКМ. Уровни стекла 0–5, класс защиты, точки контакта и локальные неисправности хранятся на сервере. У многослойного окна на последней стадии остаётся повреждённая панель. В игровом рендерере металл деформируется около сохранённых попаданий. Самые старые геометрические следы вытесняются после 24 новых отметин.
+Для художника приложена самостоятельная библиотека CamaroPanels. В Blockbench раскройте группу нужной детали, выключите Stage_0 и включите одну из стадий 1–5. В Blender выберите деталь и задайте значение 1 для одного Shape Key Dent_1…Dent_5. Пресеты относятся к 15 панелям. В Minecraft точка удара произвольна, поэтому форма конкретной вмятины может отличаться от центрального образца. FBX и GLB библиотеки повторно импортированы с проверкой пяти ключей каждой детали.
+""")
+copy(root/'ANIMATIONS.md',docs/'ANIMATIONS.md')
+with (docs/'ANIMATIONS.md').open('a') as f:f.write('\n## Предметы тира\n\nIdle, Draw, Holster, Aim, Fire, Recoil, Reload, Empty, Inspect для каждого предмета. В игровых предметах используются процедурные переходы, отдельное действие Inspect ещё отсутствует.\n')
+copy(docs/'NEXT.md',docs/'README.md')
+(docs/'CHANGELOG.md').write_text('NEXT.1: независимые стадии остекления, двусторонние трещины, осколки, локальные вмятины, объёмные предметы тира, серверные снаряды и магазин, ресурспак и библиотека моделей. База — V7, 62 клипа автомобиля сохранены.\n')
