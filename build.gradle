@@ -67,3 +67,5 @@ if (project.hasProperty('networkSmoke')) {
         }
     }
 }
+
+portAssets.inputs.file('tools/next/glass.py')

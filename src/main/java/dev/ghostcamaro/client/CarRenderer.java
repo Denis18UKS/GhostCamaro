@@ -123,8 +123,8 @@ final class CarRenderer extends EntityRenderer<GhostCamaroEntity>{
             }
             boolean reflect=mirror>=0&&!(mirror<2&&car.damaged("Mirror_"+(mirror==0?"L":"R")))&&MirrorSystem.ready&&!MirrorSystem.rendering&&car==CamaroClient.car()&&CamaroClient.mc().options.getPerspective().isFirstPerson();
             var normal=vp.getBuffer(p.alpha?RenderLayer.getEntityTranslucent(tex[p.texture]):RenderLayer.getEntityCutoutNoCull(tex[p.texture]));
-            var entry=m.peek();float[] d=p.data;
-            for(int k=0;k<p.count;k+=3){
+            var entry=m.peek();float[] d=marks.vertices(car,i,p);
+            for(int k=0;k<d.length/8;k+=3){
                 boolean face=reflect&&d[k*8+5]>.9f;
                 var dest=face?vp.getBuffer(RenderLayer.getEntitySolid(MirrorSystem.ids[mirror])):normal;
                 for(int j=0;j<4;j++){int a=(k+Math.min(j,2))*8;float u=d[a+3],v=d[a+4];

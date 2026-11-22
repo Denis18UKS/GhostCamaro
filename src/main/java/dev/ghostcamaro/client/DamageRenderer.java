@@ -11,11 +11,13 @@ import org.joml.Vector3f;
 /** Attach marks to the original triangles. Surface lookup runs only when the tracked marks change. */
 final class DamageRenderer {
     private record Mark(int node,Vector3f center,Vector3f normal,boolean glass,float radius,String zone){}
-    private record Cache(NbtCompound revision,Map<Integer,List<Mark>> groups){}
+    private record Cache(NbtCompound revision,Map<Integer,List<Mark>> groups,Map<Integer,Map<CarRenderer.Primitive,float[]>> geometry){}
     private final Map<GhostCamaroEntity,Cache> vehicles=new WeakHashMap<>();
     private final CarRenderer.Scene scene;
     private final Vector3f[] offsets;
     private static final Identifier CRACK=GhostCamaro.id("textures/entity/crack.png"),IMPACT=GhostCamaro.id("textures/entity/impact.png");
+    private static final Identifier[] PANES=new Identifier[6];
+    static {for(int i=1;i<=5;i++)PANES[i]=GhostCamaro.id("textures/entity/glass_"+i+".png");}
     DamageRenderer(CarRenderer.Scene scene){
         this.scene=scene;offsets=new Vector3f[scene.nodes.length];
         for(int root:scene.roots)offsets(root,new Vector3f());
@@ -40,7 +42,57 @@ final class DamageRenderer {
                 var hit=locate(panel.getCompound("Contact"));if(hit!=null)groups.computeIfAbsent(hit.node,k->new ArrayList<>()).add(hit);
             }
         }
-        vehicles.put(car,new Cache(state,groups));return groups;
+        Map<Integer,Map<CarRenderer.Primitive,float[]>> geometry=new HashMap<>();
+        groups.forEach((node,marks)->{
+            var dents=marks.stream().filter(h->!h.glass&&!h.zone.startsWith("Tire")&&!h.zone.startsWith("Lamp")).toList();
+            if(!dents.isEmpty()){
+                var parts=new IdentityHashMap<CarRenderer.Primitive,float[]>();
+                for(var part:scene.meshes[scene.nodes[node].mesh])parts.put(part,deform(part,dents));
+                geometry.put(node,parts);
+            }
+        });
+        vehicles.put(car,new Cache(state,groups,geometry));return groups;
+    }
+    float[] vertices(GhostCamaroEntity car,int node,CarRenderer.Primitive part){
+        var cache=vehicles.get(car);var parts=cache.geometry.get(node);
+        return parts==null?part.data:parts.getOrDefault(part,part.data);
+    }
+    private static float[] deform(CarRenderer.Primitive part,List<Mark> dents){
+        var result=new java.util.ArrayList<float[]>();
+        for(int i=0;i<part.data.length;i+=24){
+            float[] a=Arrays.copyOfRange(part.data,i,i+8),b=Arrays.copyOfRange(part.data,i+8,i+16),c=Arrays.copyOfRange(part.data,i+16,i+24);
+            split(a,b,c,dents,0,result);
+        }
+        float[] buffer=new float[result.size()*8];int at=0;
+        for(var row:result){System.arraycopy(row,0,buffer,at,8);at+=8;}
+        return buffer;
+    }
+    private static Vector3f point(float[] a){return new Vector3f(a[0],a[1],a[2]);}
+    private static float[] middle(float[] a,float[] b){
+        var v=new float[8];for(int k=0;k<8;k++)v[k]=(a[k]+b[k])*.5f;return v;
+    }
+    private static void split(float[] a,float[] b,float[] c,List<Mark> dents,int depth,List<float[]> result){
+        Vector3f A=point(a),B=point(b),C=point(c),near=new Vector3f();
+        boolean close=false;
+        for(var h:dents){
+            org.joml.Intersectionf.findClosestPointOnTriangle(A,B,C,h.center,near);
+            if(near.distanceSquared(h.center)<.10f){close=true;break;}
+        }
+        if(close&&depth<4&&Math.max(A.distanceSquared(B),Math.max(B.distanceSquared(C),C.distanceSquared(A)))>.012f){
+            var ab=middle(a,b);var bc=middle(b,c);var ca=middle(c,a);
+            split(a,ab,ca,dents,depth+1,result);split(ab,b,bc,dents,depth+1,result);
+            split(ca,bc,c,dents,depth+1,result);split(ab,bc,ca,dents,depth+1,result);return;
+        }
+        for(var vertex:new float[][]{a,b,c}){
+            if(!close){result.add(vertex);continue;}
+            var v=vertex.clone();var original=point(v);var delta=new Vector3f();
+            for(var h:dents){
+                float weight=1-original.distanceSquared(h.center)/.070f;
+                if(weight>0)delta.fma(-.032f*weight*weight,h.normal);
+            }
+            if(delta.lengthSquared()>.16f*.16f)delta.normalize(.16f);
+            v[0]+=delta.x;v[1]+=delta.y;v[2]+=delta.z;result.add(v);
+        }
     }
     private static boolean accepts(String zone,String name){
         if(zone.equals("Window_L"))return name.equals("Door_glass");
@@ -86,7 +138,7 @@ final class DamageRenderer {
             float radius=stage==0?mark.radius:mark.radius*(stage==1?.30f:stage*.72f);
             Vector3f normal=mark.normal,up=Math.abs(normal.y)>.92f?new Vector3f(1,0,0):new Vector3f(0,1,0);
             Vector3f tangent=up.cross(normal,new Vector3f()).normalize(),bitangent=normal.cross(tangent,new Vector3f());
-            var out=vp.getBuffer(RenderLayer.getEntityCutoutNoCull(mark.glass?CRACK:IMPACT));
+            var out=vp.getBuffer(RenderLayer.getEntityCutoutNoCull(stage>0?PANES[stage]:mark.glass?CRACK:IMPACT));
             var entry=m.peek();var p=new Vector3f();
             for(int face=0;face<(mark.glass?2:1);face++)for(int j=0;j<4;j++){
                 float u=j==0||j==3?0:1,v=j<2?0:1;

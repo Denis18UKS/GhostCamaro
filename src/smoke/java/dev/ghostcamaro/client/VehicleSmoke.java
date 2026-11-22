@@ -53,6 +53,7 @@ public class VehicleSmoke implements ClientModInitializer {
                 for(int dx=-9;dx<=9;dx++)for(int dz=-14;dz<=18;dz++)w.setBlockState(new BlockPos(x+dx,y-1,z+dz),Blocks.STONE.getDefaultState());
                 for(int dx=-7;dx<=7;dx++)for(int y1=0;y1<4;y1++)w.setBlockState(new BlockPos(x+dx,y+y1,z-6), (dx< -2?Blocks.RED_CONCRETE:dx>2?Blocks.BLUE_CONCRETE:Blocks.YELLOW_CONCRETE).getDefaultState());
                 var car=new GhostCamaroEntity(GhostCamaro.CAR,w);car.refreshPositionAndAngles(x+.5,y,z+.5,0,0);check(w.spawnEntity(car),"spawn vehicle");carId=car.getUuid();
+                for(int j=0;j<4;j++)car.impact(car.getPos().add(car.offset(.32,1.03,.34)),5);
                 car.cargo.setStack(12,new ItemStack(Items.BREAD,17));check(Cargo.exchange(car,s->s.isOf(Items.BREAD),4,new ItemStack(Items.IRON_INGOT,2)),"cargo transfer commits");
                 check(!Cargo.exchange(car,s->s.isOf(Items.BREAD),64,new ItemStack(Items.DIAMOND)),"failed transfer rolls back");
                 var cp=new GhostCamaroEntity(GhostCamaro.CAR,w);cp.readNbt(car.writeNbt(new NbtCompound()));check(cp.cargo.getStack(12).getCount()==13&&Cargo.count(cp,s->s.isOf(Items.IRON_INGOT))==2,"NBT slot persistence");

@@ -52,3 +52,5 @@ audit={'nodes':g['nodes'],'materials':g['materials'],'textures':g['images'],'ani
 (root/'build/v7/PORT_AUDIT.json').write_text(json.dumps(audit,ensure_ascii=False,indent=1))
 print('Animation channels checked:',len(model['clips']))
 subprocess.run([sys.executable,str(root/'tools/v7/streets.py')],check=True)
+
+subprocess.run([sys.executable,str(root/'tools/next/glass.py')],check=True)
