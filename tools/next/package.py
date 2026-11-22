@@ -7,7 +7,9 @@ def copy(src,dest):
 for folder,ext in [('Blockbench','.bbmodel'),('Blender','.blend'),('Exports/FBX','.fbx'),('Exports/GLB','.glb')]:
  copy(base/('GhostCamaro-V7'+ext),out/folder/'Vehicles'/('GhostCamaro'+ext))
 shutil.copytree(base/'Textures',out/'Textures/Vehicles',dirs_exist_ok=True)
-for ext in ['blend','glb','fbx','bbmodel']:\n assert (base/('GhostCamaro-V7.'+ext)).stat().st_size>1000\nsrc=out/'Minecraft/GhostCamaro-NEXT-Source.zip'
+for ext in ['blend','glb','fbx','bbmodel']:
+ assert (base/('GhostCamaro-V7.'+ext)).stat().st_size>1000
+src=out/'Minecraft/GhostCamaro-NEXT-Source.zip'
 with zipfile.ZipFile(src,'w',zipfile.ZIP_DEFLATED) as z:
  for name in subprocess.check_output(['git','ls-files'],text=True).splitlines():z.write(root/name,name)
 jar=next((out/'Minecraft').glob('*.jar'))

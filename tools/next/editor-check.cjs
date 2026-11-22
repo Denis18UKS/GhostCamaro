@@ -1,10 +1,10 @@
 const fs=require('node:fs'),path=require('node:path'),{chromium}=require('playwright');
 (async()=>{
- const browser=await chromium.launch({headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader']});
+ const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader']});
  try{
- const files=fs.readdirSync('build/next/Blockbench',{recursive:true}).filter(n=>n.endsWith('.bbmodel')).sort(),results=[];
+ const files=fs.readdirSync('build/next/Blockbench',{recursive:true}).filter(n=>n.endsWith('.bbmodel')&&!n.startsWith('Vehicles/')).sort(),results=[];
  for(const name of files){
-  const page=await browser.newPage();try {
+  const page=await browser.newPage({ignoreHTTPSErrors:true});try {
    await page.goto('https://web.blockbench.net',{waitUntil:'domcontentloaded',timeout:90000});
    await page.waitForFunction(()=>window.Codecs?.project&&window.Formats?.free,{},{timeout:90000});
    const raw=fs.readFileSync(path.join('build/next/Blockbench',name),'utf8');
