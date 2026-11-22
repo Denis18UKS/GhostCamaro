@@ -51,5 +51,7 @@ for model in sorted((assets/'models/block').glob('*.json'))+sorted((assets/'mode
   if animated:
    names={a.name.split('|')[-1] for a in bpy.data.actions}
    assert all(any(title in n for n in names) for title in ('Idle','Draw','Holster','Aim','Fire','Recoil','Reload','Empty','Inspect')),(ext,names)
-  assert len([o for o in bpy.context.scene.objects if o.type=='MESH'])==len(src['elements'])
+  expected={e.get('name',f'{n}_{k+1:02}') for k,e in enumerate(src['elements'])}
+  present={o.name for o in bpy.context.scene.objects if o.type=='MESH' and len(o.data.polygons)>0 and len(o.data.uv_layers)>0}
+  assert expected<=present,(ext,n,expected-present)
  print('ROUNDTRIP',n,len(src['elements']),flush=True)
